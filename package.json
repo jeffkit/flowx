@@ -12,12 +12,15 @@
     "flowx": "./bin/flowx.js"
   },
   "scripts": {
-    "test": "node test/smoke.js"
+    "test": "node --test test/"
   },
   "files": [
     "index.js",
     "checkpoint.js",
     "agent.js",
+    "self-mod-guard.js",
+    "quality-gate.js",
+    "failure-context.js",
     "flows/",
     "bin/"
   ],
