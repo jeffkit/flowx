@@ -1,0 +1,24 @@
+{
+  "//": "flowx provider profile 示例。复制到 ~/.flowx/providers.json（机器级）或 <repo>/.flowx/providers.json（项目级覆盖）。",
+  "//apiKey": "apiKey 用 ${ENV_VAR} 在运行时从进程 env 展开，明文密钥永不写进配置文件。",
+  "providers": {
+    "deepseek": {
+      "type": "openai",
+      "apiBase": "https://api.deepseek.com/v1",
+      "model": "deepseek-v4-pro",
+      "apiKey": "${DEEPSEEK_API_KEY}"
+    },
+    "minimax": {
+      "type": "openai",
+      "apiBase": "https://api.minimaxi.com/v1",
+      "model": "MiniMax-M3",
+      "apiKey": "${MINIMAX_API_KEY}"
+    },
+    "anthropic-deepseek": {
+      "type": "anthropic",
+      "apiBase": "https://api.deepseek.com/anthropic",
+      "model": "deepseek-chat",
+      "apiKey": "${DEEPSEEK_API_KEY}"
+    }
+  }
+}

@@ -26,10 +26,11 @@ import { join } from 'path'
 import { execFileSync } from 'child_process'
 
 import { Checkpoint } from '../checkpoint.js'
-import { recursive, setWorkdir, setHitlBackend, notify, waitForInput } from '../agent.js'
+import { recursive, recursiveProviderEnv, setWorkdir, setHitlBackend, notify, waitForInput } from '../agent.js'
 import { withSelfModGuard, captureBaseline } from '../self-mod-guard.js'
 import { runGate } from '../quality-gate.js'
 import { writeFailureContext, readAndConsumeFailureContext } from '../failure-context.js'
+import { loadProviders, resolveProvider } from '../provider.js'
 
 // ── CLI 参数 ─────────────────────────────────────────────────────
 const { values: opts } = parseArgs({
@@ -56,16 +57,9 @@ if (opts.list) { listRuns(); process.exit(0) }
 const runId = opts['run-id'] ?? `selfimprove-${Date.now()}`
 const repo = opts.repo
 
-// 命名 provider profile → recursive 读取的 env（忠实复刻 self-improve.sh 的 apply_provider_profile）。
-// 需在顶层 await main() 之前初始化（const 无提升，避免 TDZ）。
-const PROVIDER_PROFILES = {
-  minimax:               { type: 'openai',    base: 'https://api.minimaxi.com/v1',          model: 'MiniMax-M3',      keyEnv: 'MINIMAX_API_KEY' },
-  deepseek:              { type: 'openai',    base: 'https://api.deepseek.com/v1',          model: 'deepseek-v4-pro', keyEnv: 'DEEPSEEK_API_KEY' },
-  'deepseek-pro':        { type: 'openai',    base: 'https://api.deepseek.com/v1',          model: 'deepseek-v4-pro', keyEnv: 'DEEPSEEK_API_KEY' },
-  glm:                   { type: 'openai',    base: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.1',         keyEnv: 'GLM_API_KEY' },
-  'anthropic-minimax':   { type: 'anthropic', base: 'https://api.minimaxi.com/anthropic',   model: 'MiniMax-M3',      keyEnv: 'MINIMAX_API_KEY' },
-  'anthropic-deepseek':  { type: 'anthropic', base: 'https://api.deepseek.com/anthropic',   model: 'deepseek-chat',   keyEnv: 'DEEPSEEK_API_KEY' },
-}
+// provider 定义不再硬编码在 flow 里：从 ~/.flowx/providers.* + <repo>/.flowx/providers.* 加载。
+// 顶层 await（在 main() 前）拿到 map，buildEnv 同步消费。
+const PROVIDERS = await loadProviders({ repo })
 
 const cp = new Checkpoint(runId)
 
@@ -344,26 +338,13 @@ function goalSubject() {
   return firstLine.replace(/^#+\s*/, '').replace(/^Goal:\s*/i, '').trim().slice(0, 60)
 }
 
-/** 解析命名 profile 为 recursive 的 provider env；key 缺失则抛错。 */
-function profileEnv(name, modelOverride) {
-  if (!name) return {}
-  const p = PROVIDER_PROFILES[name]
-  if (!p) throw new Error(`未知 provider profile: ${name}（支持 ${Object.keys(PROVIDER_PROFILES).join(' / ')}）`)
-  const key = process.env[p.keyEnv]
-  if (!key) throw new Error(`provider '${name}' 的 API key 环境变量 ${p.keyEnv} 未设置`)
-  return {
-    RECURSIVE_PROVIDER_TYPE: p.type,
-    RECURSIVE_API_BASE: p.base,
-    RECURSIVE_MODEL: modelOverride ?? p.model,
-    RECURSIVE_API_KEY: key,
-  }
-}
-
 // recursive 通过 env 读取 provider 配置（与 self-improve.sh 一致），不走 --provider flag。
+// 通用解析（resolveProvider）+ recursive 专属 env 翻译（recursiveProviderEnv）分两层。
 function buildEnv(providerOverride) {
-  const env = profileEnv(providerOverride ?? opts.provider, opts.model)
-  if (opts.budget) env.RECURSIVE_MAX_STEPS = String(opts.budget)
-  return env
+  const bundle = resolveProvider(providerOverride ?? opts.provider, PROVIDERS)
+  if (!bundle) return {}
+  if (opts.model) bundle.model = opts.model // --model 覆盖 profile 默认模型
+  return recursiveProviderEnv({ ...bundle, maxSteps: opts.budget })
 }
 
 function configureHitl() {

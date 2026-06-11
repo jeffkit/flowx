@@ -21,7 +21,9 @@
     "self-mod-guard.js",
     "quality-gate.js",
     "failure-context.js",
+    "provider.js",
     "flows/",
+    "examples/",
     "bin/"
   ],
   "keywords": ["workflow", "agent", "cli", "claude", "cursor", "automation"],

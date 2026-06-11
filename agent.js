@@ -246,6 +246,23 @@ export async function recursive(goal, {
   })
 }
 
+/**
+ * 把通用 provider bundle（见 provider.js resolveProvider）翻译成 recursive 二进制读取的
+ * RECURSIVE_* 环境变量。RECURSIVE_* 这套名字是 recursive 的协议约定（与 self-improve.sh 一致），
+ * 属于 recursive adapter 的知识，故放这里而非通用 provider 层。
+ * @param {{type?,apiBase?,model?,apiKey?,maxSteps?}} [bundle]
+ * @returns {Record<string,string>} 可直接并入子进程 env
+ */
+export function recursiveProviderEnv({ type, apiBase, model, apiKey, maxSteps } = {}) {
+  const env = {}
+  if (type) env.RECURSIVE_PROVIDER_TYPE = type
+  if (apiBase) env.RECURSIVE_API_BASE = apiBase
+  if (model) env.RECURSIVE_MODEL = model
+  if (apiKey) env.RECURSIVE_API_KEY = apiKey
+  if (maxSteps != null && maxSteps !== '') env.RECURSIVE_MAX_STEPS = String(maxSteps)
+  return env
+}
+
 // ── 通用 runAgent：根据 cli 参数路由到对应封装 ────────────────────
 
 const CLI_MAP = { claude, gemini, codex, aider, cursor, recursive }

@@ -3,8 +3,8 @@
 > AI 恢复上下文先读本文件，再读 implement.md / plan.md / prompt.md。
 
 **最后更新**：2026-06-11
-**分支**：`feat/self-iteration-engine`（flowx 仓，已提交 commit c08a6a9）
-**整体状态**：🟢 Step 1 全部里程碑完成并提交；count_lines review=PASS
+**分支**：`feat/self-iteration-engine`（flowx 仓，已提交 c08a6a9 / 24cd851 + provider 标准化）
+**整体状态**：🟢 Step 1 完成并提交；count_lines review=PASS；provider profile 已标准化（消除硬编码泄露）
 
 ## 进度
 
@@ -34,12 +34,31 @@
 - **B) review 健壮化**：写成 goal，晚点另一个 session 让 self-improve workflow 自己做 → 已写 `.dev/goals/001-self-review-structured-verdict.md`。
 - **C) 提交 Step 1 成果到 flowx feat 分支**：已提交（c08a6a9）。
 
+## Provider profile 标准化（2026-06-11，kongjie 拍板「现在做」）
+
+把「执行器 adapter（怎么驱动 CLI）」与「provider 配置（哪个模型/端点/密钥）」彻底分层，
+借鉴 ilink-hub bridge profile 的 `${VAR}` 插值规范，flowx 仓内不再有任何端点/密钥。
+
+- **新增 `provider.js`**：`interpolateEnv`（${VAR}，缺失 fail-fast，$$ 转义）+
+  `loadProviders`（~/.flowx + <repo>/.flowx 多层合并，支持 json/yaml/js）+
+  `resolveProvider`（name → 通用 bundle，兼容旧 base/keyEnv 字段）。
+- **agent.js 新增 `recursiveProviderEnv`**：通用 bundle → `RECURSIVE_*` env（recursive 协议知识归 adapter）。
+- **flow 删除 `PROVIDER_PROFILES` 硬编码**：改为 `loadProviders → resolveProvider → recursiveProviderEnv`。
+- **配置外置**：profiles 迁到 `~/.flowx/providers.json`（机器级，密钥 `${VAR}`）；仓内留 `examples/providers.example.json`。
+- 单测：provider.test.js 17 个；全量 45 个全绿。冒烟验证解析链路 OK。
+
+分层结论（对齐 L1/L2/L3）：
+- L2 引擎内核 / L1 adapter / provider schema+resolver → **flowx 库**（通用）。
+- 项目特定 flow 配置（质量门、provider 名）→ **项目仓 `.flowx/`**（committed，小文件）。
+- 机器级状态+密钥（run checkpoints、API key）→ **`~/.flowx/`** 或 gitignore 的 `.flowx/`。
+
 ## 已知下一步（不阻塞）
 
-1. review 健壮化：给 self-review 加 max-steps 限制 + 「resume 追问 only-VERDICT」强制结构化提取。
-2. （B 阶段）协议规范化 + revengers 选择性接入（L3 动态编排）——属 Step 2/3，本步非目标。
+1. review 健壮化：见 `.dev/goals/001-self-review-structured-verdict.md`（留给 self-improve workflow dogfooding）。
+2. 把 `recursive-self-improve` 通用骨架抽进 flowx、recursive 仓只留薄配置（`.flowx/self-improve.yaml`）——Step 2 候选。
+3. revengers 选择性接入（L3 动态编排）——Step 3。
 
 ## 现场（未做任何破坏性操作）
 
 - recursive 仓 main 未动；count_lines 改动仅在隔离 worktree 的特性分支上。
-- flowx 仓改动均在工作区，未 commit。
+- flowx 仓改动已提交 feat 分支。
