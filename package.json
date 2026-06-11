@@ -1,0 +1,32 @@
+{
+  "name": "@force-lab/flowx",
+  "version": "0.1.0",
+  "description": "轻量 workflow 编排框架：断点续跑、HITL、多 CLI 调度",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./flows/*": "./flows/*.js"
+  },
+  "bin": {
+    "flowx": "./bin/flowx.js"
+  },
+  "scripts": {
+    "test": "node test/smoke.js"
+  },
+  "files": [
+    "index.js",
+    "checkpoint.js",
+    "agent.js",
+    "flows/",
+    "bin/"
+  ],
+  "keywords": ["workflow", "agent", "cli", "claude", "cursor", "automation"],
+  "author": "jeffkit <bbmyth@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jeffkit/flowx.git"
+  },
+  "engines": { "node": ">=20" }
+}
