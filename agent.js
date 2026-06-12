@@ -408,8 +408,18 @@ function specLabel(spec = {}) {
 // 采用自适应指数退避——首次失败冷却 base（默认 30s），连续失败翻倍、封顶 cap（默认 8min），
 // 加 ±10% 抖动避免并发任务同时复活；成功调用清除冷却与失败计数（限额恢复 → 立即回优先位）。
 // 这样瞬时抖动只短冷一下，硬限额则越冷越久，不会每 2 分钟固定白撞一次。
+// base/cap 可经 env 覆盖（FLOWX_AGENT_COOLDOWN_BASE_MS / _MAX_MS），改参数不动代码。
 export const AGENT_COOLDOWN_BASE_MS = 30_000
 export const AGENT_COOLDOWN_MAX_MS = 480_000
+
+// 不动代码就能调冷却：env 覆盖默认值（无效/缺省时回退内置常量）。
+// FLOWX_AGENT_COOLDOWN_BASE_MS / FLOWX_AGENT_COOLDOWN_MAX_MS（单位 ms，>=0）。
+function envMs(name, fallback) {
+  const v = parseInt(process.env[name] ?? '', 10)
+  return Number.isFinite(v) && v >= 0 ? v : fallback
+}
+function defaultCooldownBaseMs() { return envMs('FLOWX_AGENT_COOLDOWN_BASE_MS', AGENT_COOLDOWN_BASE_MS) }
+function defaultCooldownMaxMs() { return envMs('FLOWX_AGENT_COOLDOWN_MAX_MS', AGENT_COOLDOWN_MAX_MS) }
 
 // 按连续失败次数算退避时长（含 ±10% 抖动）。
 function backoffMs(fails, base = AGENT_COOLDOWN_BASE_MS, cap = AGENT_COOLDOWN_MAX_MS) {
@@ -440,7 +450,7 @@ function coolRemaining(cooldown, spec, now) {
  */
 export async function runAgentChain(prompt, chain, {
   runner = runAgent, cooldown = null,
-  cooldownBaseMs = AGENT_COOLDOWN_BASE_MS, cooldownMaxMs = AGENT_COOLDOWN_MAX_MS,
+  cooldownBaseMs = defaultCooldownBaseMs(), cooldownMaxMs = defaultCooldownMaxMs(),
 } = {}) {
   const list = Array.isArray(chain) && chain.length ? chain : [{}]
   // 冷却中的 agent 排到末尾（按剩余冷却升序），未冷却的保持原优先级；保证总有可试项。

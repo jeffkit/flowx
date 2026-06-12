@@ -257,6 +257,30 @@ test('runAgentChain：run 级冷却 → 刚限额的 agent 下次降级到链尾
   assert.deepEqual(calls2, ['agy'])
 })
 
+test('runAgentChain：FLOWX_AGENT_COOLDOWN_BASE_MS env 覆盖冷却 base', async () => {
+  const prev = process.env.FLOWX_AGENT_COOLDOWN_BASE_MS
+  process.env.FLOWX_AGENT_COOLDOWN_BASE_MS = '100000'   // 覆盖默认 30s → 100s
+  try {
+    const cooldown = new Map()
+    const chain = [{ cli: 'claude', provider: { name: 'minimax' } }, { cli: 'agy' }]
+    const runner = async (_p, spec) => {
+      if (spec.provider?.name === 'minimax') { const e = new Error('429'); e.apiStatus = 429; throw e }
+      return 'ok'
+    }
+    await runAgentChain('x', chain, { runner })   // 不传 cooldownBaseMs → 走 env 默认
+    // 用上面的 cooldown 没意义（没传）；改为直接验证冷却时长落在 env 设定附近
+    const cd = new Map()
+    await runAgentChain('x', chain, { runner, cooldown: cd })
+    const entry = cd.get('claude/minimax')
+    const remaining = entry.until - Date.now()
+    // 100s ±10% 抖动 → 应远大于内置默认 30s
+    assert.ok(remaining > 60_000, `冷却应被 env 放大到 ~100s，实际剩余 ${remaining}ms`)
+  } finally {
+    if (prev === undefined) delete process.env.FLOWX_AGENT_COOLDOWN_BASE_MS
+    else process.env.FLOWX_AGENT_COOLDOWN_BASE_MS = prev
+  }
+})
+
 test('runAgentChain：冷却中的 agent 作兜底成功后解除其冷却', async () => {
   const cooldown = new Map([['claude/anthropic-minimax', Date.now() + 60_000]])
   const chain = [{ cli: 'claude', provider: { name: 'anthropic-minimax' } }, { cli: 'agy' }]
