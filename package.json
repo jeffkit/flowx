@@ -26,8 +26,11 @@
     "dry-run.js",
     "git.js",
     "subflow.js",
+    "loop.js",
+    "memory.js",
     "flows/",
     "orchestrator/",
+    "dashboard/",
     "examples/",
     "bin/"
   ],

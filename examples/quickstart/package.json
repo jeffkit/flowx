@@ -1,0 +1,15 @@
+{
+  "name": "flowx-quickstart",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "flowx 最小可跑模板：clone → install → dry-run → 真跑",
+  "scripts": {
+    "dry": "FLOWX_DRY_RUN=1 node flow.mjs --repo .",
+    "start": "node flow.mjs --repo ."
+  },
+  "dependencies": {
+    "@force-lab/flowx": "github:jeffkit/flowx"
+  },
+  "engines": { "node": ">=20" }
+}
