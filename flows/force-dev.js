@@ -17,9 +17,11 @@ import { parseArgs } from 'util'
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path'
 import { Checkpoint } from '../checkpoint.js'
-import { runAgent, runAgentChain, parallel, waitForInput, setWorkdir } from '../agent.js'
+import { runAgent, runAgentChain, parallel, waitForInput, setWorkdir, setAgentEventSink } from '../agent.js'
 import { runGates } from '../quality-gate.js'
 import { loadProviders, resolveProvider } from '../provider.js'
+import { gitHead, gitCurrentBranch, gitCommitsAhead, gitCreateBranch, gitStatus } from '../git.js'
+import { isDryRun } from '../dry-run.js'
 
 // ── CLI 参数解析 ─────────────────────────────────────────────────
 const { values: opts } = parseArgs({
@@ -51,6 +53,11 @@ const batchMode = !!promptFileContent
 
 // ── 主流程 ───────────────────────────────────────────────────────
 const cp = new Checkpoint(runId, `${repo}/.flowx/runs`)
+
+// 观测埋点：把 provider/CLI 回退事件写进本 run 的 run.log.jsonl（看板据此算 fallback 率）。
+// fanOut 子进程里跑的 force-dev 也各自写自己的 jsonl，看板跨 worktree 采集时一并读到。
+setAgentEventSink(e => cp.event(e.event, e))
+const onEvent = e => cp.event(e.event, e)
 
 // provider：把「用哪个网关/模型/密钥」从代码抽到 .flowx/providers.*（密钥用 ${VAR} 运行时插值）。
 const projectCfg = loadProjectConfig(repo)
@@ -102,6 +109,11 @@ const reviewPromptPrefix = reviewerSpec0?.extraPromptPrefix ? reviewerSpec0.extr
 console.log(`  agent chain: ${chainLabel(defaultChain)}`)
 if (reviewerCfg) console.log(`  reviewer chain: ${chainLabel(reviewerChain)}`)
 
+// run 级 agent 冷却：刚因限额/超时挂掉的 agent 在窗口内降级到链尾，避免后续每步白白重撞它。
+// 整个 force-dev 进程共享一份（todo-drain 下每个任务是独立进程，天然隔离）。
+const agentCooldown = new Map()
+const chainRun = (prompt, chain) => runAgentChain(prompt, chain, { cooldown: agentCooldown })
+
 // 续跑时从 state 里恢复参数，首次运行时从 CLI 取
 const feature = opts.feature ?? cp.getPauseContext().feature
 if (!feature) {
@@ -119,14 +131,28 @@ await run()
 // ── Phase 实现 ───────────────────────────────────────────────────
 
 async function run() {
-  // ── Phase 1C: 建分支 ──────────────────────────────────────────
-  const branch = await cp.step('p1.create-branch', () =>
-    runAgentChain(
-      `在 ${repo} 创建特性分支 feat/${feature}，切换到该分支，只返回分支名，不要其他内容。`,
-      defaultChain
-    )
-  )
-  console.log(`  branch: ${branch?.trim()}`)
+  // 记录起点 commit，用于事后校验「是否真有产出」（防空成功）。
+  const baseSha = isDryRun() ? null : gitHead(repo)
+
+  // ── Phase 1C: 建分支（确定性 git 操作，不交给 LLM）──────────────
+  // 历史教训：让 agent 建分支时，弱 CLI 可能只回文本没跑 git → worktree 停在
+  // detached HEAD → 后续零产出却一路 exit 0（空成功）。改用 git 原语直接建。
+  const branch = await cp.step('p1.create-branch', () => {
+    if (isDryRun()) return `feat/${feature}`
+    return gitCreateBranch(repo, `feat/${feature}`).branch
+  })
+  console.log(`  branch: ${branch}`)
+
+  // 护栏：再确认确实切到了非 detached 分支（防御性，正常必过）。
+  await cp.step('p1.verify-branch', () => {
+    if (isDryRun()) return 'SKIP'
+    const cur = gitCurrentBranch(repo)
+    if (!cur || cur === 'HEAD') {
+      throw new Error(`分支创建后仍处于 detached HEAD（${cur || '?'}）；判定失败，避免空成功。`)
+    }
+    console.log(`  ✓ on branch: ${cur}`)
+    return cur
+  })
 
   // ── Phase 1D: 写 prompt.md ────────────────────────────────────
   const planDir = `${repo}/docs/exec-plans/active/${feature}`
@@ -137,7 +163,7 @@ async function run() {
       writeFileSync(`${planDir}/prompt.md`, promptFileContent)
       return 'done'
     }
-    return runAgentChain(
+    return chainRun(
       `在 ${planDir}/ 目录创建 prompt.md。
        内容包含三个部分：目标（用户视角描述）、完成标准（每条可验证）、非目标（至少一条）。
        feature: ${feature}
@@ -161,7 +187,7 @@ async function run() {
 
   // ── Phase 2: 写 plan.md，再单独读取里程碑结构 ─────────────────
   await cp.step('p2.write-plan', () =>
-    runAgentChain(
+    chainRun(
       `读取 ${repo}/docs/exec-plans/active/${feature}/prompt.md，
        在同目录创建 plan.md，包含：里程碑列表（每个有验证命令）、E2E checkpoint 标记。
        写完后只回复 "done"。`,
@@ -171,7 +197,7 @@ async function run() {
 
   // 单独一步提取里程碑结构，要求严格 JSON 输出
   const milestonesJson = await cp.step('p2.parse-milestones', () =>
-    runAgentChain(
+    chainRun(
       `读取 ${repo}/docs/exec-plans/active/${feature}/plan.md，
        提取所有里程碑，只返回如下 JSON，不要有任何其他文字：
        {"milestones":[{"id":"m1","name":"里程碑名称","e2e":false}]}
@@ -196,6 +222,19 @@ async function run() {
     await executeMilestone(m, feature, repo, branch)
   }
 
+  // ── Phase 3.4: 产出校验（防空成功）────────────────────────────
+  // 质量门在「零改动」时也会通过（基线本就是绿的），所以单靠 final-gate 无法区分
+  // 「真做完了」和「啥也没干」。这里在归档/开 PR 前确认相对起点真有提交。
+  await cp.step('p3.verify-commits', () => {
+    if (isDryRun()) return 'SKIP'
+    const n = gitCommitsAhead(repo, baseSha)
+    if (n === 0) {
+      throw new Error(`相对起点 ${String(baseSha).slice(0, 7)} 共 0 提交；判定为空成功，拒绝归档/开 PR。请检查 agent 是否真正写代码并 commit。`)
+    }
+    console.log(`  ✓ commits ahead: ${n}`)
+    return `${n} commits`
+  })
+
   // ── Phase 3.5: 最终质量门（框架级兜底）─────────────────────────
   // 里程碑级 E2E 仅在 plan.md 标了 checkpoint 时跑，批量模式 plan 常无标记。
   // 这里在归档前强制跑一次 qualityGates，确保红灯不会被归档/开 PR。
@@ -205,13 +244,13 @@ async function run() {
       console.log('  无 qualityGates 配置，跳过最终质量门')
       return 'SKIP'
     }
-    await runGates(gates.map(g => ({ ...g, cwd: repo })))
-    return 'GATE:PASS'
+      await runGates(gates.map(g => ({ ...g, cwd: repo })), { onEvent })
+      return 'GATE:PASS'
   })
 
   // ── Phase 4: 归档 + PR ────────────────────────────────────────
   await cp.step('p4.archive', () =>
-    runAgentChain(
+    chainRun(
       `执行以下步骤，工作目录 ${repo}：
        1. git mv docs/exec-plans/active/${feature} docs/exec-plans/completed/${feature}
        2. git commit -m "docs: archive exec-plan for ${feature}"
@@ -222,7 +261,7 @@ async function run() {
   )
 
   await cp.step('p4.pr', () =>
-    runAgentChain(
+    chainRun(
       `在 ${repo} 用 gh pr create 创建 PR：
        title: feat: ${feature}
        body: 描述 what/why/how-to-test
@@ -232,7 +271,7 @@ async function run() {
   )
 
   await cp.step('p4.journal', () =>
-    runAgentChain(
+    chainRun(
       `在 ${repo}/journal/ 目录（不存在则创建）写今天的 journal 条目，
        记录 feature=${feature} 的完成情况，格式参考目录内已有文件。
        完成后只回复 "done"。`,
@@ -253,8 +292,10 @@ async function executeMilestone(m, feature, repo, branch) {
   const gateHint = gates.length > 0
     ? `验证命令（必须全绿）：\n${gates.map(g => `  - ${g.name}: ${g.cmd}`).join('\n')}`
     : '运行 lint+typecheck+test+build'
+  // 记录 implement 前的 HEAD，用于事后判定本里程碑「是否真有产出」（防 agent 静默空转）。
+  const shaBeforeImpl = isDryRun() ? null : gitHead(repo)
   await cp.step(`${base}.implement`, () =>
-    runAgentChain(
+    chainRun(
       `读取 ${planDir}/plan.md，执行里程碑 ${m.id}（${m.name}）：
        写代码、写测试、${gateHint}、
        在 ${planDir}/reviews/${m.id}/ 目录（不存在则创建）写 review-request.yaml、
@@ -264,9 +305,22 @@ async function executeMilestone(m, feature, repo, branch) {
     )
   )
 
+  // 护栏：implement 必须产生实质产出（新提交或工作树改动）。
+  // 弱 CLI 在限额/回退时可能只回文本却没写代码且不报错 → 这里硬卡，避免空成功一路绿灯到归档。
+  await cp.step(`${base}.verify-impl`, () => {
+    if (isDryRun()) return 'SKIP'
+    const moved = gitHead(repo) !== shaBeforeImpl
+    const dirty = !!gitStatus(repo)
+    if (!moved && !dirty) {
+      throw new Error(`里程碑 ${m.id} implement 后零产出（无新提交、工作树干净）；判定为空成功，拒绝继续。请检查 agent 是否真正写了代码。`)
+    }
+    console.log(`  ✓ impl 产出：${[moved && '新提交', dirty && '工作树改动'].filter(Boolean).join('+')}`)
+    return moved ? 'COMMIT' : 'DIRTY'
+  })
+
   // 审查：reviewerChain（可跨 CLI 回退）在模块顶部已解析；reviewPromptPrefix 取首个 reviewer spec。
   const reviewVerdict = await cp.step(`${base}.review`, () =>
-    runAgentChain(
+    chainRun(
       `${reviewPromptPrefix}读取 ${planDir}/reviews/${m.id}/review-request.yaml 和相关代码，
        执行对抗性审查，把结果写入 ${planDir}/reviews/${m.id}/review-findings.yaml。
        最后一行只输出 VERDICT:PASS 或 VERDICT:NEEDS_FIX，不要其他内容。`,
@@ -285,11 +339,11 @@ async function executeMilestone(m, feature, repo, branch) {
       const gates = loadQualityGates(repo)
       if (gates.length > 0) {
         // 有项目级质量门配置（如 Rust 的 cargo test/clippy），直接跑
-        await runGates(gates.map(g => ({ ...g, cwd: repo })))
+        await runGates(gates.map(g => ({ ...g, cwd: repo })), { onEvent })
         return 'E2E:PASS'
       }
       // 无配置则回退到 argusai（FORCE Lab 标准 E2E）
-      return runAgentChain(
+      return chainRun(
         `在 ${repo} 跑 E2E 验证里程碑 ${m.id}：
          argusai status → argusai dev/rebuild → argusai run。
          最后一行只输出 E2E:PASS 或 E2E:FAIL:原因。`,
@@ -321,7 +375,7 @@ async function fixLoop(m, base, planDir, repo) {
     if (cp.state.completed[fixKey] === 'PASS') break
 
     await cp.step(fixKey, () =>
-      runAgentChain(
+      chainRun(
         `读取 ${planDir}/reviews/${m.id}/review-findings.yaml，
          修复所有 CRITICAL 和 HIGH 问题，补充对抗性测试，
          重跑 lint+test+build，更新 review-findings.yaml，git commit。

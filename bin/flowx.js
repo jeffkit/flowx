@@ -23,6 +23,7 @@ flowx — lightweight workflow runner
 Commands:
   force-dev          Run the force-dev flow (feature branch → code → review → PR)
   orchestrate <goal> L3: generate a flow from a goal, validate it, then run it
+  dashboard          Generate a static observability dashboard (HTML) for all runs
   list               List all workflow runs in current project
   run <file>         Run a custom flow file
 
@@ -33,6 +34,7 @@ Examples:
   flowx orchestrate "..." --run-id orch-123    # resume: reuse generated flow.mjs
   flowx orchestrate "..." --dry-run            # generate for real, execute with fakes
   flowx orchestrate "大目标" --split --concurrency 3   # decompose → flow per task → fan out
+  flowx dashboard --repo . --open              # scan runs + worktrees → .flowx/dashboard.html
   flowx list
   flowx run ./flows/my-flow.js --foo bar
 `)
@@ -53,6 +55,11 @@ if (command === 'list') {
   // L3：一行需求 → 生成 flow → 校验 → 执行（续跑锁定）
   const { runOrchestrate } = await import(join(__dirname, '../orchestrator/cli.js'))
   process.exit(await runOrchestrate(rest))
+
+} else if (command === 'dashboard') {
+  // 可观测看板：扫描 .flowx/runs + worktree → 生成单文件 HTML（只读快照）
+  const { runDashboard } = await import(join(__dirname, '../dashboard/cli.js'))
+  process.exit(await runDashboard(rest))
 
 } else if (command === 'run') {
   // 跑任意自定义 flow 文件

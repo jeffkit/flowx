@@ -73,6 +73,16 @@ test('红灯 + resume-fix 仍失败 → 抛错', async () => {
   )
 })
 
+test('onEvent：绿灯 emit gate/pass，红灯 emit gate/fail（埋点）', async () => {
+  const events = []
+  const onEvent = e => events.push(e)
+  await runGate({ name: 'ok', cmd: 'true' }, { onEvent })
+  assert.deepEqual(events.at(-1), { event: 'gate', name: 'ok', status: 'pass', attempts: 1 })
+
+  await assert.rejects(runGate({ name: 'bad', cmd: 'exit 7', onFail: 'rollback' }, { onEvent }))
+  assert.deepEqual(events.at(-1), { event: 'gate', name: 'bad', status: 'fail', exitCode: 7 })
+})
+
 test('runGates 顺序执行，遇红灯即抛', async () => {
   await assert.rejects(
     runGates([

@@ -21,6 +21,34 @@ export function gitDiff(repo = process.cwd(), { staged = false } = {}) {
   return git(staged ? ['diff', '--cached'] : ['diff'], repo)
 }
 
+/** 当前 HEAD 的完整 sha。 */
+export function gitHead(repo = process.cwd()) {
+  return git(['rev-parse', 'HEAD'], repo)
+}
+
+/** 当前分支名；detached HEAD 时返回 'HEAD'。 */
+export function gitCurrentBranch(repo = process.cwd()) {
+  return git(['rev-parse', '--abbrev-ref', 'HEAD'], repo)
+}
+
+/** HEAD 相对 baseRef（commit-ish）领先的提交数；用于判断「是否真有产出」。 */
+export function gitCommitsAhead(repo = process.cwd(), baseRef = 'main') {
+  return parseInt(git(['rev-list', '--count', `${baseRef}..HEAD`], repo), 10) || 0
+}
+
+/**
+ * 确定性地创建/切换到分支（建分支是 git 操作，不该交给 LLM）。
+ * 已存在则切换，否则从当前 HEAD 新建。dry-run 下不实际操作。
+ * @returns {{branch:string, created:boolean, dryRun?:boolean}}
+ */
+export function gitCreateBranch(repo = process.cwd(), name) {
+  if (!name) throw new Error('gitCreateBranch 需要 name')
+  if (isDryRun()) return { branch: name, created: false, dryRun: true }
+  const exists = !!git(['branch', '--list', name], repo)
+  git(exists ? ['checkout', name] : ['checkout', '-b', name], repo)
+  return { branch: name, created: !exists }
+}
+
 /**
  * 暂存全部并提交；无改动则跳过。dry-run 下不实际提交。
  * @returns {{committed:boolean, sha?:string, dryRun?:boolean, reason?:string}}

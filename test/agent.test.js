@@ -6,7 +6,7 @@ import { join } from 'path'
 
 import {
   recursive, spawnCapture, claudeProviderEnv, isProviderRetryable, runAgentChain,
-  setHitlBackend, getHitlBackend, waitForInput, notify, parallel,
+  setHitlBackend, getHitlBackend, waitForInput, notify, parallel, setAgentEventSink,
 } from '../agent.js'
 
 // 假的 recursive 二进制：按 FAKE_MODE 控制输出/退出码，并按 --transcript-out 写 transcript。
@@ -114,6 +114,42 @@ test('claudeProviderEnv：非 anthropic 协议 fail-fast', () => {
 
 // ── provider 回退判定 ─────────────────────────────────────────────
 
+test('setAgentEventSink：CLI 回退时 emit fallback 事件（观测埋点）', async () => {
+  const events = []
+  setAgentEventSink(e => events.push(e))
+  try {
+    let calls = 0
+    const runner = async (_p, spec) => {
+      calls++
+      if (spec.cli === 'claude') { const e = new Error('rate limit'); e.apiStatus = 429; throw e }
+      return 'ok'
+    }
+    const r = await runAgentChain('x', [{ cli: 'claude' }, { cli: 'agy' }], { runner })
+    assert.equal(r, 'ok')
+    const fb = events.find(e => e.event === 'fallback')
+    assert.ok(fb, '应 emit 一条 fallback 事件')
+    assert.equal(fb.scope, 'cli')
+    assert.equal(fb.from, 'claude')
+    assert.equal(fb.to, 'agy')
+  } finally {
+    setAgentEventSink(null)   // 复位，避免污染其他用例
+  }
+})
+
+test('setAgentEventSink：sink 抛错不影响主流程', async () => {
+  setAgentEventSink(() => { throw new Error('sink boom') })
+  try {
+    const runner = async (_p, spec) => {
+      if (spec.cli === 'claude') { const e = new Error('429'); e.apiStatus = 429; throw e }
+      return 'ok'
+    }
+    const r = await runAgentChain('x', [{ cli: 'claude' }, { cli: 'agy' }], { runner })
+    assert.equal(r, 'ok', '观测 sink 抛错应被吞掉，回退照常进行')
+  } finally {
+    setAgentEventSink(null)
+  }
+})
+
 test('isProviderRetryable：429/529 状态码 → 可回退', () => {
   assert.equal(isProviderRetryable({ apiStatus: 429, message: 'x' }), true)
   assert.equal(isProviderRetryable({ apiStatus: 529, message: 'x' }), true)
@@ -175,6 +211,67 @@ test('runAgentChain：非限额错误 → 不回退，直接抛', async () => {
     /model not found/,
   )
   assert.deepEqual(calls, ['claude'])  // 未尝试 agy
+})
+
+// ── timeout 纳入可回退 ────────────────────────────────────────────
+
+test('isProviderRetryable：超时(err.timedOut) → 可回退', () => {
+  assert.equal(isProviderRetryable({ timedOut: true, message: '[agy] timeout after 1000ms' }), true)
+  // 仅 message 含 timeout 但无结构化标记 → 不误判（避免代码报错文本里带 timeout 触发回退）
+  assert.equal(isProviderRetryable({ message: 'connection timeout to db' }), false)
+})
+
+test('runAgentChain：超时错误 → 回退到下一个 agent', async () => {
+  const calls = []
+  const runner = async (_p, spec) => {
+    calls.push(spec.cli)
+    if (spec.cli === 'agy') { const e = new Error('[agy] timeout after 1000ms'); e.timedOut = true; throw e }
+    return 'OK-' + spec.cli
+  }
+  const r = await runAgentChain('x', [{ cli: 'agy' }, { cli: 'claude' }], { runner })
+  assert.equal(r, 'OK-claude')
+  assert.deepEqual(calls, ['agy', 'claude'])
+})
+
+// ── run 级冷却 ────────────────────────────────────────────────────
+
+test('runAgentChain：run 级冷却 → 刚限额的 agent 下次降级到链尾', async () => {
+  const cooldown = new Map()
+  const chain = [{ cli: 'claude', provider: { name: 'anthropic-minimax' } }, { cli: 'agy' }]
+  // 第 1 次：minimax 429 → 回退 agy 成功；minimax 进入冷却
+  const calls1 = []
+  const runner1 = async (_p, spec) => {
+    calls1.push(spec.cli + (spec.provider?.name ? '/' + spec.provider.name : ''))
+    if (spec.provider?.name === 'anthropic-minimax') { const e = new Error('rate limit'); e.apiStatus = 429; throw e }
+    return 'OK-agy'
+  }
+  await runAgentChain('x', chain, { runner: runner1, cooldown })
+  assert.deepEqual(calls1, ['claude/anthropic-minimax', 'agy'])
+  // 第 2 次：minimax 仍在冷却 → 直接先试 agy，不再白撞 minimax
+  const calls2 = []
+  const runner2 = async (_p, spec) => {
+    calls2.push(spec.cli + (spec.provider?.name ? '/' + spec.provider.name : ''))
+    return 'OK-' + spec.cli
+  }
+  await runAgentChain('x', chain, { runner: runner2, cooldown })
+  assert.deepEqual(calls2, ['agy'])
+})
+
+test('runAgentChain：冷却中的 agent 作兜底成功后解除其冷却', async () => {
+  const cooldown = new Map([['claude/anthropic-minimax', Date.now() + 60_000]])
+  const chain = [{ cli: 'claude', provider: { name: 'anthropic-minimax' } }, { cli: 'agy' }]
+  const calls = []
+  const runner = async (_p, spec) => {
+    calls.push(spec.cli + (spec.provider?.name ? '/' + spec.provider.name : ''))
+    if (spec.cli === 'agy') { const e = new Error('rate limit'); e.apiStatus = 429; throw e }
+    return 'OK-minimax'
+  }
+  const r = await runAgentChain('x', chain, { runner, cooldown })
+  assert.equal(r, 'OK-minimax')
+  // minimax 冷却 → 先试 agy → agy 429 → 兜底回到 minimax 成功
+  assert.deepEqual(calls, ['agy', 'claude/anthropic-minimax'])
+  assert.equal(cooldown.has('claude/anthropic-minimax'), false)  // 成功 → 解除冷却
+  assert.equal(cooldown.has('agy'), true)                        // agy 失败 → 进入冷却
 })
 
 // ── HITL 可插拔后端 ───────────────────────────────────────────────

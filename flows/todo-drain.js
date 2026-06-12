@@ -23,7 +23,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, copyFi
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { Checkpoint } from '../checkpoint.js'
-import { fanOut } from '../subflow.js'
+import { fanOut, archiveChildRun } from '../subflow.js'
 import { parseTodos, groupTodos, groupToFeaturePrompt } from './todo-parser.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -172,6 +172,11 @@ async function run() {
         const success = result.ok
         const reason = success ? 'ok' : (result.spawnError ? 'spawn error' : `exit ${result.exitCode}`)
         cp.record(task._stepKey, { success, reason, featureName: task.name, forceDevRunId: task.runId, worktree })
+        // 观测埋点：把每组 fanOut 结果写进父 run 的 jsonl，看板据此画 drain 父子网格。
+        cp.event('group', { name: task.name, status: success ? 'done' : 'failed', reason, childRunId: task.runId })
+        // 把子 run 状态从 worktree 镜像回主仓 .flowx/runs，避免 worktree 被后续 drain 复用/清理时
+        // 连同观测数据一起丢失（之前 server-1 等失败组的子 run 就这样被覆盖、看板再也找不到）。
+        archiveChildRun(repo, worktree, task.runId)
         if (success) {
           completed++
           markTodosAsDone(todoPath, task._group.items.map(it => it.id))

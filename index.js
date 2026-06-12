@@ -1,7 +1,7 @@
 // @force-lab/flowx 公共 API
 export { Checkpoint } from './checkpoint.js'
 export {
-  runAgent, runAgentChain, setWorkdir,
+  runAgent, runAgentChain, setWorkdir, setAgentEventSink,
   claude, cursor, gemini, codex, aider, recursive, agy,
   spawnCapture, resolveRecursiveBin, recursiveProviderEnv, claudeProviderEnv, isProviderRetryable,
   parallel, pipeline,
@@ -13,5 +13,6 @@ export { writeFailureContext, readAndConsumeFailureContext } from './failure-con
 export { interpolateEnv, loadProviders, resolveProvider, loadMergedConfig, basenamesFor } from './provider.js'
 export { EXECUTORS, getExecutor, loadAgents, resolveAgent } from './executor.js'
 export { isDryRun } from './dry-run.js'
-export { gitStatus, gitDiff, gitCommitAll, gitWorktreeAdd, gitWorktreeRemove } from './git.js'
-export { runFlow, fanOut } from './subflow.js'
+export { gitStatus, gitDiff, gitCommitAll, gitHead, gitCurrentBranch, gitCommitsAhead, gitCreateBranch, gitWorktreeAdd, gitWorktreeRemove } from './git.js'
+export { runFlow, fanOut, archiveChildRun } from './subflow.js'
+export { collectRuns, renderHtml, generateDashboard } from './dashboard/index.js'

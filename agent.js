@@ -2,6 +2,7 @@ import { spawn } from 'child_process'
 import { readFileSync, existsSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
+import { isDryRun } from './dry-run.js'
 
 // ── 底层 CLI 调用 ─────────────────────────────────────────────────
 
@@ -19,7 +20,9 @@ function spawnCli(cli, args, cwd, timeout, env) {
 
     const timer = setTimeout(() => {
       proc.kill()
-      reject(new Error(`[${cli}] timeout after ${timeout}ms`))
+      const err = new Error(`[${cli}] timeout after ${timeout}ms`)
+      err.timedOut = true
+      reject(err)
     }, timeout)
 
     proc.on('close', code => {
@@ -52,8 +55,11 @@ export function claudeProviderEnv(provider) {
 
 // provider 限额/超载错误 → 可回退到下一个 provider。
 const RETRYABLE_PROVIDER_ERR = /rate.?limit|session limit|too many requests|quota|overloaded|\b429\b|\b529\b/i
+// 超时（卡死/慢）也应回退到下一个 agent——靠 err.timedOut 结构化标记，不靠 message 文本匹配，避免误判。
 export function isProviderRetryable(err) {
-  return err?.apiStatus === 429 || err?.apiStatus === 529 || RETRYABLE_PROVIDER_ERR.test(err?.message ?? '')
+  return err?.timedOut === true ||
+    err?.apiStatus === 429 || err?.apiStatus === 529 ||
+    RETRYABLE_PROVIDER_ERR.test(err?.message ?? '')
 }
 
 /**
@@ -66,7 +72,7 @@ async function claudeOnce(prompt, { cwd, effModel, extraArgs, timeout, env }) {
   args.push(...extraArgs)
   const { stdout, exitCode, timedOut, spawnError } = await spawnCapture('claude', args, { cwd, timeout, env })
   if (spawnError) throw new Error(`[claude] spawn error: ${spawnError}`)
-  if (timedOut) throw new Error(`[claude] timeout after ${timeout}ms`)
+  if (timedOut) { const err = new Error(`[claude] timeout after ${timeout}ms`); err.timedOut = true; throw err }
   let data
   try {
     data = JSON.parse(stdout)
@@ -108,7 +114,11 @@ export async function claude(prompt, {
     } catch (e) {
       lastErr = e
       if (i < chain.length - 1 && isProviderRetryable(e)) {
-        console.warn(`  [provider fallback] ${p?.name ?? 'default'} 不可用（${e.apiStatus ?? String(e.message).slice(0, 40)}），切换 → ${chain[i + 1]?.name ?? 'default'}`)
+        const from = p?.name ?? 'default'
+        const to = chain[i + 1]?.name ?? 'default'
+        const reason = String(e.apiStatus ?? e.message).slice(0, 80)
+        console.warn(`  [provider fallback] ${from} 不可用（${reason}），切换 → ${to}`)
+        emitAgentEvent({ event: 'fallback', scope: 'provider', cli: 'claude', from, to, reason })
         continue
       }
       throw e
@@ -361,7 +371,27 @@ export function setWorkdir(dir) {
   _defaultCwd = dir
 }
 
+// ── 观测事件 sink（与 setWorkdir/setHitlBackend 同款模块级注入）────────
+//
+// provider/CLI 回退这类「可观测信号」原本只打到 stdout，结构化数据里丢了。
+// flow 启动时用 setAgentEventSink(e => cp.event(...)) 注入一次，回退发生时
+// 就把 {event:'fallback',...} 写进 run.log.jsonl，看板据此算 fallback 率。
+// 默认 null（不注入则零开销）；emit 吞掉异常——观测绝不能影响主流程。
+let _agentEventSink = null
+
+/** 注入 agent 观测事件回调（fallback 等）。传非函数即清空。 */
+export function setAgentEventSink(fn) {
+  _agentEventSink = typeof fn === 'function' ? fn : null
+}
+
+function emitAgentEvent(e) {
+  if (!_agentEventSink) return
+  try { _agentEventSink(e) } catch { /* 观测失败不影响主流程 */ }
+}
+
 export async function runAgent(prompt, { cli = 'claude', cwd, ...opts } = {}) {
+  // dry-run：不真实调用任何 CLI/API，返回假结果让 flow 骨架能空跑（写 flow/改原语时校验流程）。
+  if (isDryRun()) return Object.assign(`[dry-run] ${cli} 未真实执行`, { _meta: { cli, dryRun: true } })
   const fn = CLI_MAP[cli]
   if (!fn) throw new Error(`未知 CLI: ${cli}，支持：${Object.keys(CLI_MAP).join('/')}`)
   const result = await fn(prompt, { cwd: cwd ?? _defaultCwd, ...opts })
@@ -369,30 +399,79 @@ export async function runAgent(prompt, { cli = 'claude', cwd, ...opts } = {}) {
   return result
 }
 
-// 一个 agent spec 的可读标签（cli[/provider]），用于回退日志。
+// 一个 agent spec 的可读标签（cli[/provider]），用于回退日志与冷却键。
 function specLabel(spec = {}) {
   return `${spec.cli ?? 'claude'}${spec.provider?.name ? '/' + spec.provider.name : ''}`
 }
 
+// run 级冷却：agent 因限额/超时失败后短期降级到链尾，避免每步白白重撞。
+// 采用自适应指数退避——首次失败冷却 base（默认 30s），连续失败翻倍、封顶 cap（默认 8min），
+// 加 ±10% 抖动避免并发任务同时复活；成功调用清除冷却与失败计数（限额恢复 → 立即回优先位）。
+// 这样瞬时抖动只短冷一下，硬限额则越冷越久，不会每 2 分钟固定白撞一次。
+export const AGENT_COOLDOWN_BASE_MS = 30_000
+export const AGENT_COOLDOWN_MAX_MS = 480_000
+
+// 按连续失败次数算退避时长（含 ±10% 抖动）。
+function backoffMs(fails, base = AGENT_COOLDOWN_BASE_MS, cap = AGENT_COOLDOWN_MAX_MS) {
+  const ms = Math.min(base * 2 ** Math.max(0, fails - 1), cap)
+  return Math.round(ms * (0.9 + Math.random() * 0.2))
+}
+
+// 该 spec 当前剩余冷却时间（ms）；无冷却 Map 或已过期返回 0。兼容值为数字或 {until,fails}。
+function coolRemaining(cooldown, spec, now) {
+  if (!cooldown) return 0
+  const entry = cooldown.get(specLabel(spec))
+  const until = entry && typeof entry === 'object' ? entry.until : entry
+  return until && until > now ? until - now : 0
+}
+
 /**
  * 跨 CLI 的 agent 链式回退：chain 是一组 runAgent opts，按序尝试，
- * 某个因限额/不可用（isProviderRetryable）失败就切下一个（如 claude+minimax → agy → claude+deepseek）。
+ * 某个因限额/超载/超时（isProviderRetryable）失败就切下一个（如 claude+minimax → agy → claude+deepseek）。
  * 与 claude adapter 内部的 provider 回退正交：这里能跨不同 CLI 回退。
+ *
+ * 可选 run 级冷却：传入共享 cooldown（Map<label, {until,fails}>），刚因限额/超时挂掉的 agent
+ * 按指数退避降级到链尾（不丢弃，仍可作最后兜底），避免后续每步都先白撞它一次；
+ * 成功调用会清除其冷却（限额恢复后自动回到优先位）。
+ *
  * @param {string} prompt
  * @param {Array<object>} chain  每个元素是一份 runAgent opts（含 cli/model/provider/...）
- * @param {{runner?:Function}} [io]  runner 默认 runAgent，可注入便于测试
+ * @param {{runner?:Function, cooldown?:Map, cooldownBaseMs?:number, cooldownMaxMs?:number}} [io]
  */
-export async function runAgentChain(prompt, chain, { runner = runAgent } = {}) {
+export async function runAgentChain(prompt, chain, {
+  runner = runAgent, cooldown = null,
+  cooldownBaseMs = AGENT_COOLDOWN_BASE_MS, cooldownMaxMs = AGENT_COOLDOWN_MAX_MS,
+} = {}) {
   const list = Array.isArray(chain) && chain.length ? chain : [{}]
+  // 冷却中的 agent 排到末尾（按剩余冷却升序），未冷却的保持原优先级；保证总有可试项。
+  const now = Date.now()
+  const order = cooldown
+    ? list.map((spec, i) => ({ spec, i, cool: coolRemaining(cooldown, spec, now) }))
+        .sort((a, b) => (a.cool - b.cool) || (a.i - b.i)).map(x => x.spec)
+    : list
   let lastErr
-  for (let i = 0; i < list.length; i++) {
+  for (let i = 0; i < order.length; i++) {
+    const spec = order[i]
     try {
-      return await runner(prompt, list[i])
+      const r = await runner(prompt, spec)
+      if (cooldown) cooldown.delete(specLabel(spec))  // 成功 → 清除冷却与失败计数，下次回到优先位
+      return r
     } catch (e) {
       lastErr = e
-      if (i < list.length - 1 && isProviderRetryable(e)) {
-        console.warn(`  [agent fallback] ${specLabel(list[i])} 不可用（${e.apiStatus ?? String(e.message).slice(0, 50)}），切换 → ${specLabel(list[i + 1])}`)
-        continue
+      if (isProviderRetryable(e)) {
+        const from = specLabel(spec)
+        const reason = e.timedOut ? 'timeout' : String(e.apiStatus ?? e.message).slice(0, 80)
+        if (cooldown) {
+          const prev = cooldown.get(from)
+          const fails = (prev && typeof prev === 'object' ? prev.fails ?? 0 : 0) + 1
+          cooldown.set(from, { until: Date.now() + backoffMs(fails, cooldownBaseMs, cooldownMaxMs), fails })
+        }
+        if (i < order.length - 1) {
+          const to = specLabel(order[i + 1])
+          console.warn(`  [agent fallback] ${from} 不可用（${reason}），切换 → ${to}`)
+          emitAgentEvent({ event: 'fallback', scope: 'cli', from, to, reason })
+          continue
+        }
       }
       throw e
     }

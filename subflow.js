@@ -7,7 +7,7 @@
 // 续跑由子 flow 自身的 --run-id + Checkpoint 负责；worktree 隔离让并发子 flow 互不污染。
 
 import { spawn } from 'child_process'
-import { mkdirSync, openSync, closeSync } from 'fs'
+import { mkdirSync, openSync, closeSync, existsSync, cpSync } from 'fs'
 import { dirname, join } from 'path'
 import { gitWorktreeAdd } from './git.js'
 import { isDryRun } from './dry-run.js'
@@ -137,4 +137,33 @@ export async function fanOut(tasks, {
   }
   await Promise.all(Array.from({ length: limit }, worker))
   return results
+}
+
+/**
+ * 把 worktree 内某条子 run 的状态镜像回主仓 `.flowx/runs`（观测数据保全）。
+ *
+ * worktree 隔离的子 flow 把 state.json / run.log.jsonl 写在
+ * `<worktree>/.flowx/runs/<childRunId>`。worktree 会被后续 fanOut 复用或被清理，
+ * 这些观测数据随之消失（实测：失败组的子 run 就这样被覆盖、看板再也找不到）。
+ * 每组完成后镜像回 `<repo>/.flowx/runs/<childRunId>`，让看板（跨 worktree 采集）
+ * 能在主仓一处稳定读到。纯保全操作，失败只告警、不影响主流程。
+ *
+ * @param {string} repo        主仓根目录（镜像目标）
+ * @param {string} worktree    子 flow 的 worktree 路径（镜像来源；为空则跳过）
+ * @param {string} childRunId  子 run 的 runId
+ * @returns {boolean} 是否真的镜像了
+ */
+export function archiveChildRun(repo, worktree, childRunId) {
+  if (!worktree || !childRunId) return false
+  const src = join(worktree, '.flowx', 'runs', childRunId)
+  const dst = join(repo, '.flowx', 'runs', childRunId)
+  if (!existsSync(src) || src === dst) return false
+  try {
+    mkdirSync(dirname(dst), { recursive: true })
+    cpSync(src, dst, { recursive: true })
+    return true
+  } catch (e) {
+    console.warn(`  ⚠ 镜像子 run ${childRunId} 失败（忽略）：${e.message}`)
+    return false
+  }
 }

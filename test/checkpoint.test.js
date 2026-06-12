@@ -39,6 +39,36 @@ test('Checkpoint.record: 并发回调按 fan-out 方式写多个 key 都不丢',
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
+test('Checkpoint.event：结构化事件追加进 run.log.jsonl（不进 state.json）', () => {
+  const dir = tempDir()
+  try {
+    const cp = new Checkpoint('rev', dir)
+    cp.event('fallback', { from: 'a', to: 'b', reason: '429' })
+    cp.event('gate', { name: 'test', status: 'fail', exitCode: 101 })
+    const lines = readFileSync(join(dir, 'rev', 'run.log.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l))
+    assert.equal(lines.length, 2)
+    assert.equal(lines[0].event, 'fallback')
+    assert.equal(lines[0].reason, '429')
+    assert.ok(lines[0].ts, '事件应带时间戳')
+    assert.equal(lines[1].event, 'gate')
+    // 事件不该污染 state.json
+    const state = JSON.parse(readFileSync(join(dir, 'rev', 'state.json'), 'utf8'))
+    assert.equal(state.steps.length, 0)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('Checkpoint 报告：record 的步骤无 durationMs 时渲染 "-" 而非 "NaNs"', () => {
+  const dir = tempDir()
+  try {
+    const cp = new Checkpoint('rnan', dir)
+    cp.record('group.a', { success: true })   // record 不带 durationMs
+    cp.done({ done: 1 })
+    const report = readFileSync(join(dir, 'rnan', 'report.md'), 'utf8')
+    assert.ok(!report.includes('NaN'), '报告不应出现 NaN')
+    assert.match(report, /\| group\.a \| done \| - \|/)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
 test('Checkpoint.step 仍跳过已 record 的 key', async () => {
   const dir = tempDir()
   try {

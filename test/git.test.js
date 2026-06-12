@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { existsSync } from 'node:fs'
-import { gitCommitAll, gitStatus, gitDiff, gitWorktreeAdd, gitWorktreeRemove } from '../git.js'
+import { gitCommitAll, gitStatus, gitDiff, gitWorktreeAdd, gitWorktreeRemove, gitHead, gitCurrentBranch, gitCommitsAhead, gitCreateBranch } from '../git.js'
 
 function tempRepo() {
   const dir = mkdtempSync(join(tmpdir(), 'flowx-git-'))
@@ -94,4 +94,60 @@ test('gitWorktreeAdd: dry-run 不实际创建', () => {
 
 test('gitWorktreeAdd: 缺 dir 抛错', () => {
   assert.throws(() => gitWorktreeAdd('/tmp'), /需要 dir/)
+})
+
+test('gitHead/gitCurrentBranch/gitCommitsAhead: 分支与产出判断', () => {
+  const dir = tempRepo()
+  try {
+    writeFileSync(join(dir, 'a.txt'), 'one\n')
+    gitCommitAll(dir, 'init')
+    const base = gitHead(dir)
+    assert.ok(/^[0-9a-f]{40}$/.test(base))
+
+    // 新建并切到特性分支
+    execFileSync('git', ['checkout', '-q', '-b', 'feat/x'], { cwd: dir })
+    assert.equal(gitCurrentBranch(dir), 'feat/x')
+    assert.equal(gitCommitsAhead(dir, base), 0)  // 还没新提交
+
+    // 真有产出 → 提交数 > 0
+    writeFileSync(join(dir, 'b.txt'), 'two\n')
+    gitCommitAll(dir, 'feat work')
+    assert.equal(gitCommitsAhead(dir, base), 1)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('gitCurrentBranch: detached HEAD 返回 HEAD（空成功的特征）', () => {
+  const dir = tempRepo()
+  try {
+    writeFileSync(join(dir, 'a.txt'), 'one\n')
+    gitCommitAll(dir, 'init')
+    const sha = gitHead(dir)
+    execFileSync('git', ['checkout', '-q', sha], { cwd: dir })  // detach
+    assert.equal(gitCurrentBranch(dir), 'HEAD')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('gitCreateBranch: 从 detached HEAD 确定性建分支，再次调用切换复用', () => {
+  const dir = tempRepo()
+  try {
+    writeFileSync(join(dir, 'a.txt'), 'one\n')
+    gitCommitAll(dir, 'init')
+    const sha = gitHead(dir)
+    execFileSync('git', ['checkout', '-q', sha], { cwd: dir })  // detach（模拟 worktree 初始态）
+    assert.equal(gitCurrentBranch(dir), 'HEAD')
+
+    const r = gitCreateBranch(dir, 'feat/y')
+    assert.equal(r.created, true)
+    assert.equal(gitCurrentBranch(dir), 'feat/y')
+
+    // 已存在 → 切换复用，不抛
+    execFileSync('git', ['checkout', '-q', sha], { cwd: dir })
+    const r2 = gitCreateBranch(dir, 'feat/y')
+    assert.equal(r2.created, false)
+    assert.equal(gitCurrentBranch(dir), 'feat/y')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('gitCreateBranch: 缺 name 抛错', () => {
+  assert.throws(() => gitCreateBranch('/tmp'), /需要 name/)
 })

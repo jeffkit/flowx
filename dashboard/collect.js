@@ -1,0 +1,257 @@
+// dashboard/collect.js — L1 采集器：把散落的 run 状态读成一个纯数据模型。
+//
+// flowx 的「可观测原料」全是文件、零 DB：
+//   <repo>/.flowx/runs/<runId>/state.json      状态机快照（status/completed/steps/...）
+//   <repo>/.flowx/runs/<runId>/run.log.jsonl    逐步审计日志 + cp.event 结构化事件
+//   <repo>/.flowx/runs/<runId>/*.log            fanOut 各子任务的纯文本输出（根因常在这）
+//   <repo>/.worktrees/<task>/.flowx/runs/...     worktree 隔离的子 run 落这里
+//
+// 采集器做三件事，且全部是纯函数 + 可注入 now（便于测试、不烧 API）：
+//   1. 跨主仓 + 所有 worktree 扫描，按 runId 去重（取信息更全的那份）
+//   2. 重建父→子树（drain-X 是 drain-X-<group> 的父，靠 runId 前缀边界匹配）
+//   3. 推断僵尸 run：status=running 但 jsonl/state 最近活动超阈值 → 标 stale
+//      （进程被 kill/崩溃时没机会把 status 改 failed，只能这样推断）
+
+import { readFileSync, readdirSync, existsSync, statSync } from 'fs'
+import { join } from 'path'
+
+export const DEFAULT_STALE_MS = 10 * 60 * 1000   // 10 分钟无活动且仍 running → 僵尸
+const DEFAULT_LOG_TAIL_LINES = 120               // 每个 .log 只嵌入尾部 N 行
+const DEFAULT_LOG_TAIL_BYTES = 12_000            // 且不超过 N 字节（防 HTML 膨胀）
+const MAX_RESULT_CHARS = 600                     // 步骤 result 嵌入上限（state.json 里可能很大）
+
+/** 读 jsonl 文件 → 解析每行；坏行跳过。返回 [] 表示文件不存在或全坏。 */
+function readJsonl(path) {
+  if (!existsSync(path)) return []
+  const out = []
+  for (const line of readFileSync(path, 'utf8').split('\n')) {
+    const t = line.trim()
+    if (!t) continue
+    try { out.push(JSON.parse(t)) } catch { /* 半截行/损坏，跳过 */ }
+  }
+  return out
+}
+
+/** 取文本尾部：最后 maxLines 行，且裁到 maxBytes 以内。 */
+function tail(text, maxLines, maxBytes) {
+  let lines = text.split('\n')
+  if (lines.length > maxLines) lines = lines.slice(-maxLines)
+  let out = lines.join('\n')
+  if (out.length > maxBytes) out = '…(截断)\n' + out.slice(-maxBytes)
+  return out
+}
+
+/** 安全取 mtime（毫秒）；取不到返回 0。 */
+function mtimeMs(path) {
+  try { return statSync(path).mtimeMs } catch { return 0 }
+}
+
+/** 截断步骤 result，避免把 parse-todos 那种巨型 payload 整个嵌进看板。 */
+function summarizeResult(result) {
+  if (result == null) return null
+  const s = typeof result === 'string' ? result : JSON.stringify(result)
+  return s.length > MAX_RESULT_CHARS ? s.slice(0, MAX_RESULT_CHARS) + `…(+${s.length - MAX_RESULT_CHARS})` : s
+}
+
+/**
+ * 把 jsonl 事件流归并成可观测信号（fallback 率 / 质量门红灯 / fanOut 分组 / 修复轮数）。
+ * 事件由 cp.event 写入：{event:'fallback'|'gate'|'group', ...}。
+ */
+function summarizeEvents(events, steps) {
+  const signals = {
+    fallback: 0,            // provider/CLI 回退次数（429 等）
+    fallbackByScope: {},    // {provider:n, cli:n}
+    gatePass: 0,
+    gateFail: 0,
+    group: { done: 0, failed: 0 },
+    fixRounds: 0,           // fix-loop 轮数（从 step key 推断）
+  }
+  for (const e of events) {
+    if (e.event === 'fallback') {
+      signals.fallback++
+      signals.fallbackByScope[e.scope] = (signals.fallbackByScope[e.scope] ?? 0) + 1
+    } else if (e.event === 'gate') {
+      if (e.status === 'pass') signals.gatePass++
+      else if (e.status === 'fail') signals.gateFail++
+    } else if (e.event === 'group') {
+      if (e.status === 'failed') signals.group.failed++
+      else signals.group.done++
+    }
+  }
+  // fix-loop 轮数：force-dev 的修复步形如 p3.<m>.fix-1 / fix-2…
+  signals.fixRounds = steps.filter(s => /\.fix-\d+$/.test(s.key)).length
+  return signals
+}
+
+/**
+ * 读单个 run 目录 → run 对象；目录里没有 state.json 返回 null（非 run 目录）。
+ * @param {string} dir     run 目录绝对路径
+ * @param {string} runId
+ * @param {object} o       { now, staleMs, logTailLines, logTailBytes }
+ */
+export function readRun(dir, runId, {
+  now = Date.now(), staleMs = DEFAULT_STALE_MS,
+  logTailLines = DEFAULT_LOG_TAIL_LINES, logTailBytes = DEFAULT_LOG_TAIL_BYTES,
+} = {}) {
+  const statePath = join(dir, 'state.json')
+  if (!existsSync(statePath)) return null
+  let state
+  try { state = JSON.parse(readFileSync(statePath, 'utf8')) } catch { return null }
+
+  const logPath = join(dir, 'run.log.jsonl')
+  const logEntries = readJsonl(logPath)
+  // 区分「步骤日志」（有 key）与「结构化事件」（有 event）
+  const events = logEntries.filter(e => e.event != null)
+
+  const lastActivityMs = Math.max(mtimeMs(statePath), mtimeMs(logPath))
+  const status = state.status ?? 'unknown'
+  const stale = status === 'running' && lastActivityMs > 0 && (now - lastActivityMs) > staleMs
+
+  const steps = (state.steps ?? []).map(s => ({
+    key: s.key,
+    status: s.status ?? 'done',
+    durationMs: Number.isFinite(s.durationMs) ? s.durationMs : null,
+    completedAt: s.completedAt ?? null,
+    cli: s.cli ?? null,
+  }))
+
+  // 找出失败步：jsonl 里 status=error 的步骤 key（步骤本身在 state.steps 里只存成功的）
+  const errorSteps = logEntries
+    .filter(e => e.key != null && e.status === 'error')
+    .map(e => ({ key: e.key, error: e.error ?? null, durationMs: e.durationMs ?? null }))
+
+  // fanOut 父目录里的 per-task 纯文本日志（<task>.log）——失败根因常在这
+  const logs = []
+  for (const f of safeReaddir(dir)) {
+    if (!f.endsWith('.log')) continue   // run.log.jsonl 以 .jsonl 结尾，天然排除
+    const p = join(dir, f)
+    try {
+      logs.push({ name: f, tail: tail(readFileSync(p, 'utf8'), logTailLines, logTailBytes), mtimeMs: mtimeMs(p) })
+    } catch { /* 读不动就跳过 */ }
+  }
+
+  const startedAt = state.startedAt ?? null
+  const completedAt = state.completedAt ?? null
+  const durationMs = startedAt && completedAt
+    ? (new Date(completedAt) - new Date(startedAt))
+    : (startedAt ? (lastActivityMs ? lastActivityMs - new Date(startedAt) : null) : null)
+
+  return {
+    runId,
+    dir,
+    status,
+    stale,
+    displayStatus: stale ? 'stale' : status,
+    feature: state.pauseContext?.feature ?? state.summary?.feature ?? null,
+    startedAt,
+    completedAt,
+    durationMs: Number.isFinite(durationMs) ? durationMs : null,
+    currentStep: state.currentStep ?? null,
+    pauseReason: state.pauseReason ?? null,
+    summary: state.summary ?? null,
+    completedCount: Object.keys(state.completed ?? {}).length,
+    stepCount: steps.length,
+    errorSteps,
+    paused: status === 'paused',
+    steps,
+    events: events.map(e => ({ ...e, result: e.result !== undefined ? summarizeResult(e.result) : undefined })),
+    signals: summarizeEvents(events, steps),
+    lastActivityMs,
+    lastActivity: lastActivityMs ? new Date(lastActivityMs).toISOString() : null,
+    logs,
+  }
+}
+
+function safeReaddir(dir) {
+  try { return readdirSync(dir) } catch { return [] }
+}
+
+/** 在所有 runId 中找 r 的父：最长的、是 r 严格前缀且以 '-' 为边界的那个。 */
+function findParent(runId, allIds) {
+  let best = null
+  for (const id of allIds) {
+    if (id === runId) continue
+    if (runId.startsWith(id + '-') && (!best || id.length > best.length)) best = id
+  }
+  return best
+}
+
+/**
+ * 采集一个仓（含其所有 worktree）的全部 run。
+ *
+ * @param {string} repo  仓根目录
+ * @param {object} [o]
+ *   - now          注入「当前时间」（毫秒），便于测试僵尸判定
+ *   - staleMs      僵尸阈值（默认 10min）
+ *   - includeWorktrees  是否扫 .worktrees（默认 true）
+ * @returns {{repo, generatedAt, staleMs, runs:Run[], roots:string[], stats}}
+ */
+export function collectRuns(repo, {
+  now = Date.now(), staleMs = DEFAULT_STALE_MS, includeWorktrees = true,
+  logTailLines, logTailBytes,
+} = {}) {
+  const opts = { now, staleMs, logTailLines, logTailBytes }
+  const byId = new Map()   // runId → run（去重时保留信息更全的）
+
+  const scanRunsRoot = (runsRoot) => {
+    for (const id of safeReaddir(runsRoot)) {
+      const dir = join(runsRoot, id)
+      let isDir = false
+      try { isDir = statSync(dir).isDirectory() } catch { /* skip */ }
+      if (!isDir) continue
+      const run = readRun(dir, id, opts)
+      if (!run) continue
+      const prev = byId.get(id)
+      // 同名取「完成步骤更多」的那份（worktree 内子 run 通常比主仓占位更全）
+      if (!prev || run.completedCount > prev.completedCount || run.stepCount > prev.stepCount) {
+        byId.set(id, run)
+      }
+    }
+  }
+
+  scanRunsRoot(join(repo, '.flowx', 'runs'))
+  if (includeWorktrees) {
+    const wtRoot = join(repo, '.worktrees')
+    for (const wt of safeReaddir(wtRoot)) {
+      scanRunsRoot(join(wtRoot, wt, '.flowx', 'runs'))
+    }
+  }
+
+  const runs = [...byId.values()]
+  const allIds = runs.map(r => r.runId)
+  for (const r of runs) r.parentId = findParent(r.runId, allIds)
+  const childrenOf = new Map()
+  for (const r of runs) {
+    if (!r.parentId) continue
+    if (!childrenOf.has(r.parentId)) childrenOf.set(r.parentId, [])
+    childrenOf.get(r.parentId).push(r.runId)
+  }
+  for (const r of runs) r.children = childrenOf.get(r.runId) ?? []
+
+  // 默认排序：最近活动倒序（最新的在前）
+  runs.sort((a, b) => (b.lastActivityMs ?? 0) - (a.lastActivityMs ?? 0))
+
+  const roots = runs.filter(r => !r.parentId).map(r => r.runId)
+  const stats = computeStats(runs)
+
+  return { repo, generatedAt: new Date(now).toISOString(), staleMs, runs, roots, stats }
+}
+
+function computeStats(runs) {
+  const stats = {
+    total: runs.length,
+    running: 0, paused: 0, completed: 0, stale: 0, other: 0,
+    fallback: 0, gateFail: 0, gatePass: 0,
+  }
+  for (const r of runs) {
+    if (r.stale) stats.stale++
+    else if (r.status === 'running') stats.running++
+    else if (r.status === 'paused') stats.paused++
+    else if (r.status === 'completed') stats.completed++
+    else stats.other++
+    stats.fallback += r.signals.fallback
+    stats.gateFail += r.signals.gateFail
+    stats.gatePass += r.signals.gatePass
+  }
+  return stats
+}

@@ -79,6 +79,14 @@ export class Checkpoint {
     return result
   }
 
+  // 记录一条「非步骤」的结构化事件（provider fallback / 质量门结果 / 自定义信号），
+  // 只追加进 run.log.jsonl（形如 {ts, event:'fallback'|'gate'|…, ...data}），不进 state.json
+  // —— 避免 state 膨胀，同时让看板能从日志里把可观测信号「数据自描述」地读出来。
+  // 观测用途，绝不应影响主流程，故吞掉任何写盘异常。
+  event(type, data = {}) {
+    try { this._log({ event: type, ...data }) } catch { /* 观测失败不影响主流程 */ }
+  }
+
   getPauseContext() { return this.state.pauseContext || {} }
   get status() { return this.state.status }
 
@@ -99,9 +107,10 @@ export class Checkpoint {
     const totalSec = (totalMs / 1000).toFixed(1)
 
     const stepRows = s.steps.map(st => {
-      const sec = (st.durationMs / 1000).toFixed(1)
+      // cp.record（fanOut 各组回写）不带 durationMs，旧版会渲染成 "NaNs"；此处守卫为 "-"。
+      const sec = Number.isFinite(st.durationMs) ? `${(st.durationMs / 1000).toFixed(1)}s` : '-'
       const cli = st.cli ?? '-'
-      return `| ${st.key} | ${st.status} | ${sec}s | ${cli} |`
+      return `| ${st.key} | ${st.status} | ${sec} | ${cli} |`
     }).join('\n')
 
     const report = `# Workflow Run Report
