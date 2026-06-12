@@ -112,6 +112,8 @@ h2{margin:0 0 4px;font-size:18px;word-break:break-all}
 .tl-row.err .tl-key{color:var(--err)}
 .tl-row.err .tl-bar{background:var(--err)}
 .tl-dur{text-align:right;color:var(--muted)}
+.tl-model{color:var(--muted);font-size:10px;margin-left:6px;opacity:.8}
+.tl-tok{display:block;font-size:9px;color:var(--accent);opacity:.75}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .cell{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer}
 .cell:hover{border-color:var(--accent)}
@@ -131,6 +133,7 @@ const CLIENT_JS = String.raw`
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtDur = (ms) => ms==null?'-':(ms<1000?ms+'ms':ms<60000?(ms/1000).toFixed(1)+'s':(ms/60000).toFixed(1)+'m');
+const fmtTok = (n) => (n==null||n===0)?'0':(n>=1e6?(n/1e6).toFixed(2)+'M':n>=1000?(n/1000).toFixed(1)+'k':String(n));
 const fmtTime = (iso) => { if(!iso) return '-'; const d=new Date(iso); return isNaN(d)?'-':d.toLocaleString('zh-CN',{hour12:false}); };
 const byId = Object.fromEntries(MODEL.runs.map(r=>[r.runId,r]));
 let activeStatuses = new Set();
@@ -147,6 +150,7 @@ function renderHeader(){
     ['总计',s.total,''],['运行中',s.running,'running'],['僵尸',s.stale,'stale'],
     ['暂停',s.paused,'paused'],['完成',s.completed,'completed'],
     ['fallback',s.fallback,'warn'],['质量门红灯',s.gateFail,'err'],
+    ['Token',fmtTok(s.totalTokens),''],
   ];
   $('stats').innerHTML = items.map(([k,v,c])=>
     '<div class="stat"><b style="color:'+statColor(c)+'">'+v+'</b><span>'+k+'</span></div>').join('');
@@ -210,10 +214,15 @@ function renderDetail(r){
   if(r.stale) h+='<div class="sigchip err" style="margin-bottom:12px">⚠ 僵尸 run：status=running 但最近活动 '+fmtTime(r.lastActivity)+' 已超阈值，进程可能已崩溃/被 kill</div>';
   if(r.paused&&r.pauseReason) h+='<div class="sigchip warn" style="margin-bottom:12px">⏸ 暂停等人工：'+esc(r.pauseReason)+'</div>';
 
+  const u = r.usage||{};
+  const tokCell = u.hasTokens ? kv('Token (in/out)', fmtTok(u.inputTokens)+' / '+fmtTok(u.outputTokens)+' = '+fmtTok(u.totalTokens)) : '';
+  const childTok = r.childUsage ? kv('子run Token 合计', fmtTok(r.childUsage.inputTokens)+' / '+fmtTok(r.childUsage.outputTokens)+' = '+fmtTok(r.childUsage.totalTokens)) : '';
+  const modelCell = (r.models&&r.models.length) ? kv('模型', r.models.join(', ')) : '';
   h += '<div class="kv">'
     + kv('feature',r.feature||'-') + kv('开始',fmtTime(r.startedAt))
     + kv('耗时',fmtDur(r.durationMs)) + kv('最近活动',fmtTime(r.lastActivity))
     + kv('完成步骤',r.completedCount) + (r.currentStep?kv('当前步',r.currentStep):'')
+    + modelCell + tokCell + childTok
     + '</div>';
 
   // 信号
@@ -244,9 +253,12 @@ function renderDetail(r){
     h+='<div class="section-title">步骤时间线（'+r.steps.length+' 步）</div><div class="timeline">';
     for(const s of r.steps){
       const w=Math.max(2,Math.round((s.durationMs||0)/max*100));
-      h+='<div class="tl-row"><div class="tl-key" title="'+esc(s.key)+'">'+esc(s.key)+'</div>'
+      const tok=(s.inputTokens!=null||s.outputTokens!=null)?(fmtTok((s.inputTokens||0)+(s.outputTokens||0))+' tok'):'';
+      const tip=esc(s.key)+(s.model?(' · '+s.model):'')+(tok?(' · '+tok):'');
+      h+='<div class="tl-row"><div class="tl-key" title="'+tip+'">'+esc(s.key)
+        +(s.model?'<span class="tl-model">'+esc(s.model)+'</span>':'')+'</div>'
         +'<div class="tl-bar-wrap"><div class="tl-bar" style="width:'+w+'%"></div></div>'
-        +'<div class="tl-dur">'+fmtDur(s.durationMs)+'</div></div>';
+        +'<div class="tl-dur">'+fmtDur(s.durationMs)+(tok?'<span class="tl-tok">'+tok+'</span>':'')+'</div></div>';
     }
     h+='</div>';
     // 失败步（jsonl 里 status=error）

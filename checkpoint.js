@@ -1,6 +1,18 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from 'fs'
 import { dirname, join } from 'path'
 
+// 从 agent 结果里提取 _meta（cli/model/token），只挑可观测字段，缺省安全返回 {}。
+function pickAgentMeta(result) {
+  const m = result && result._meta
+  if (!m || typeof m !== 'object') return {}
+  const out = {}
+  if (m.cli != null) out.cli = m.cli
+  if (m.model != null) out.model = m.model
+  if (Number.isFinite(m.inputTokens)) out.inputTokens = m.inputTokens
+  if (Number.isFinite(m.outputTokens)) out.outputTokens = m.outputTokens
+  return out
+}
+
 export class Checkpoint {
   constructor(runId, stateDir = '.flowx/runs') {
     this.runId = runId
@@ -39,10 +51,14 @@ export class Checkpoint {
     this.state.completed[key] = result
     this.state.currentStep = null
 
-    // 记录到 steps 列表（摘要用）和 jsonl 日志（完整审计用）
-    const stepRecord = { key, status: 'done', durationMs, completedAt: new Date().toISOString(), ...meta }
+    // 自动捕获 agent 结果上挂的 _meta（cli/model/inputTokens/outputTokens）——
+    // adapter 用 Object.assign(String(result), {_meta}) 挂在 String 包装对象上，
+    // 存进 completed 时会序列化成纯字符串而丢失，这里显式提进步骤元数据，供看板汇总 token/模型。
+    const autoMeta = pickAgentMeta(result)
+    // 记录到 steps 列表（摘要用）和 jsonl 日志（完整审计用）；显式 meta 优先级最高。
+    const stepRecord = { key, status: 'done', durationMs, completedAt: new Date().toISOString(), ...autoMeta, ...meta }
     this.state.steps.push(stepRecord)
-    this._log({ key, status: 'done', durationMs, result, meta })
+    this._log({ key, status: 'done', durationMs, result, meta: { ...autoMeta, ...meta } })
     this._flush()
     return result
   }

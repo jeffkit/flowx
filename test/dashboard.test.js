@@ -64,6 +64,33 @@ test('collectRuns：跨主仓 + worktree 采集，重建父→子树', () => {
   } finally { rmSync(repo, { recursive: true, force: true }) }
 })
 
+test('collectRuns：按 run 汇总 token + 模型，父 run 汇总子 run token', () => {
+  const repo = tempRepo()
+  try {
+    const mainRuns = join(repo, '.flowx', 'runs')
+    writeRun(mainRuns, 'drain-7', { runId: 'drain-7', status: 'completed', completed: { x: 1 }, steps: [] })
+    writeRun(mainRuns, 'drain-7-a', {
+      runId: 'drain-7-a', status: 'completed', completed: { p1: 'x', p2: 'y' },
+      steps: [
+        { key: 'p1', status: 'done', durationMs: 1, cli: 'claude', model: 'claude-sonnet', inputTokens: 1000, outputTokens: 200 },
+        { key: 'p2', status: 'done', durationMs: 2, cli: 'claude', model: 'claude-sonnet', inputTokens: 500, outputTokens: 100 },
+      ],
+    })
+    const model = collectRuns(repo)
+    const child = model.runs.find(r => r.runId === 'drain-7-a')
+    assert.equal(child.usage.hasTokens, true)
+    assert.equal(child.usage.inputTokens, 1500)
+    assert.equal(child.usage.outputTokens, 300)
+    assert.equal(child.usage.totalTokens, 1800)
+    assert.deepEqual(child.models, ['claude:claude-sonnet'])
+    // 父 run 自身无 token，但汇总子 run
+    const parent = model.runs.find(r => r.runId === 'drain-7')
+    assert.equal(parent.childUsage.totalTokens, 1800)
+    // 仓级 stats 汇总
+    assert.equal(model.stats.totalTokens, 1800)
+  } finally { rmSync(repo, { recursive: true, force: true }) }
+})
+
 test('collectRuns：僵尸推断 —— status=running 且超阈值 → stale', () => {
   const repo = tempRepo()
   try {

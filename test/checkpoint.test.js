@@ -57,6 +57,26 @@ test('Checkpoint.event：结构化事件追加进 run.log.jsonl（不进 state.j
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
+test('Checkpoint.step：自动捕获 agent 结果的 _meta(model/token) 进步骤记录', async () => {
+  const dir = tempDir()
+  try {
+    const cp = new Checkpoint('rmeta', dir)
+    // 模拟 adapter 返回：字符串 + 挂在 String 包装对象上的 _meta
+    const agentResult = Object.assign(String('done'), {
+      _meta: { cli: 'claude', model: 'claude-sonnet', inputTokens: 1200, outputTokens: 340 },
+    })
+    await cp.step('p1.impl', async () => agentResult)
+    const onDisk = JSON.parse(readFileSync(join(dir, 'rmeta', 'state.json'), 'utf8'))
+    const step = onDisk.steps.find(s => s.key === 'p1.impl')
+    assert.equal(step.cli, 'claude')
+    assert.equal(step.model, 'claude-sonnet')
+    assert.equal(step.inputTokens, 1200)
+    assert.equal(step.outputTokens, 340)
+    // completed 仍是纯字符串（不被 _meta 污染）
+    assert.equal(onDisk.completed['p1.impl'], 'done')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
 test('Checkpoint 报告：record 的步骤无 durationMs 时渲染 "-" 而非 "NaNs"', () => {
   const dir = tempDir()
   try {

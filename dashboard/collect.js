@@ -113,7 +113,25 @@ export function readRun(dir, runId, {
     durationMs: Number.isFinite(s.durationMs) ? s.durationMs : null,
     completedAt: s.completedAt ?? null,
     cli: s.cli ?? null,
+    model: s.model ?? null,
+    inputTokens: Number.isFinite(s.inputTokens) ? s.inputTokens : null,
+    outputTokens: Number.isFinite(s.outputTokens) ? s.outputTokens : null,
   }))
+
+  // 按 run 汇总 token 与用到的模型（仅 claude/cursor adapter 透出 token；其余为 null）。
+  const usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, hasTokens: false }
+  const modelSet = new Set()
+  for (const s of steps) {
+    if (s.model) modelSet.add(`${s.cli ?? '?'}:${s.model}`)
+    else if (s.cli) modelSet.add(s.cli)
+    if (s.inputTokens != null || s.outputTokens != null) {
+      usage.inputTokens += s.inputTokens ?? 0
+      usage.outputTokens += s.outputTokens ?? 0
+      usage.hasTokens = true
+    }
+  }
+  usage.totalTokens = usage.inputTokens + usage.outputTokens
+  const models = [...modelSet]
 
   // 找出失败步：jsonl 里 status=error 的步骤 key（步骤本身在 state.steps 里只存成功的）
   const errorSteps = logEntries
@@ -153,6 +171,8 @@ export function readRun(dir, runId, {
     stepCount: steps.length,
     errorSteps,
     paused: status === 'paused',
+    usage,
+    models,
     steps,
     events: events.map(e => ({ ...e, result: e.result !== undefined ? summarizeResult(e.result) : undefined })),
     signals: summarizeEvents(events, steps),
@@ -228,6 +248,22 @@ export function collectRuns(repo, {
   }
   for (const r of runs) r.children = childrenOf.get(r.runId) ?? []
 
+  // 父 run 汇总子 run 的 token（drain 父自身不跑 agent，token 在各子 run 里）。
+  const byIdMap = byId
+  for (const r of runs) {
+    if (!r.children.length) { r.childUsage = null; continue }
+    const cu = { inputTokens: 0, outputTokens: 0, totalTokens: 0, hasTokens: false }
+    for (const cid of r.children) {
+      const c = byIdMap.get(cid)
+      if (!c?.usage?.hasTokens) continue
+      cu.inputTokens += c.usage.inputTokens
+      cu.outputTokens += c.usage.outputTokens
+      cu.hasTokens = true
+    }
+    cu.totalTokens = cu.inputTokens + cu.outputTokens
+    r.childUsage = cu.hasTokens ? cu : null
+  }
+
   // 默认排序：最近活动倒序（最新的在前）
   runs.sort((a, b) => (b.lastActivityMs ?? 0) - (a.lastActivityMs ?? 0))
 
@@ -242,6 +278,7 @@ function computeStats(runs) {
     total: runs.length,
     running: 0, paused: 0, completed: 0, stale: 0, other: 0,
     fallback: 0, gateFail: 0, gatePass: 0,
+    inputTokens: 0, outputTokens: 0, totalTokens: 0,
   }
   for (const r of runs) {
     if (r.stale) stats.stale++
@@ -252,6 +289,11 @@ function computeStats(runs) {
     stats.fallback += r.signals.fallback
     stats.gateFail += r.signals.gateFail
     stats.gatePass += r.signals.gatePass
+    if (r.usage?.hasTokens) {
+      stats.inputTokens += r.usage.inputTokens
+      stats.outputTokens += r.usage.outputTokens
+    }
   }
+  stats.totalTokens = stats.inputTokens + stats.outputTokens
   return stats
 }
