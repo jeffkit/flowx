@@ -21,7 +21,8 @@ export default defineConfig({
     nav: [
       { text: '指南', link: '/guide/introduction', activeMatch: '/guide/' },
       { text: 'API 参考', link: '/api/', activeMatch: '/api/' },
-      { text: '示例', link: '/guide/examples', activeMatch: '/guide/examples' },
+      { text: '给 AI 使用', link: '/guide/for-ai', activeMatch: '/guide/for-ai' },
+      { text: '速查', link: '/llms.txt', target: '_blank' },
       {
         text: 'v0.1.0',
         items: [
@@ -39,6 +40,7 @@ export default defineConfig({
           items: [
             { text: '介绍', link: '/guide/introduction' },
             { text: '快速上手', link: '/guide/getting-started' },
+            { text: '从零到第一次跑通', link: '/guide/from-zero' },
           ],
         },
         {
@@ -58,6 +60,14 @@ export default defineConfig({
             { text: 'L3 编排（orchestrate）', link: '/guide/orchestration' },
             { text: '配置分层', link: '/guide/configuration' },
             { text: '示例', link: '/guide/examples' },
+          ],
+        },
+        {
+          text: '使用与排错',
+          collapsed: false,
+          items: [
+            { text: '给 AI 使用（skill + 速查）', link: '/guide/for-ai' },
+            { text: '排错 / FAQ', link: '/guide/troubleshooting' },
           ],
         },
       ],

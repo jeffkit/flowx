@@ -1,0 +1,35 @@
+name: Publish to npm
+
+# 打 tag（v*）即发布到 npm。发布前先跑全量单测。
+# 前置（仓库管理员一次性）：在 Settings → Secrets → Actions 配置 NPM_TOKEN
+# （一个对 @force-lab scope 有发布权限的 npm automation token）。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write  # npm provenance 需要
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Run tests
+        run: npm test
+
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
