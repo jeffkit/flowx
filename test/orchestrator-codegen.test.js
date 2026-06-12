@@ -1,10 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, rmSync } from 'node:fs'
+import { readFileSync, rmSync, mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { generateFlow, extractCode, runGeneratedFlow, orchestrate } from '../orchestrator/index.js'
+import { generateFlow, extractCode, runGeneratedFlow, orchestrate, checkFlowxResolvable } from '../orchestrator/index.js'
 import { GOLDEN_SAMPLE } from '../orchestrator/paths.js'
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -62,6 +63,36 @@ test('runGeneratedFlow: 子进程 dry-run 跑黄金样例 exit 0', async () => {
     const r = await runGeneratedFlow(GOLDEN_SAMPLE, { repo: REPO, runId: id, goal: 'a,b', dryRun: true, timeout: 30_000 })
     assert.equal(r.exitCode, 0, r.stderr)
   } finally { cleanRun(id) }
+})
+
+// ── 跑前预检：目标仓必须能解析 @force-lab/flowx ──────────────────
+
+test('checkFlowxResolvable: 本包仓自引用可解析', () => {
+  assert.equal(checkFlowxResolvable(REPO).ok, true)
+})
+
+test('checkFlowxResolvable: 无依赖的临时仓 → 友好报错', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'flowx-noresolve-'))
+  try {
+    const r = checkFlowxResolvable(dir)
+    assert.equal(r.ok, false)
+    assert.match(r.error, /@force-lab\/flowx/)
+    assert.match(r.error, /npm install/)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('orchestrate: 目标仓不可解析本包 → stage=precheck，不生成不执行', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'flowx-precheck-'))
+  let genCalled = false
+  try {
+    const r = await orchestrate('x', {
+      repo: dir, runId: 'pc-1', dryRun: true,
+      generate: async () => { genCalled = true; return '```js\n```' },
+    })
+    assert.equal(r.ok, false)
+    assert.equal(r.stage, 'precheck')
+    assert.equal(genCalled, false)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
 // ── M5 端到端 + 续跑锁定 ─────────────────────────────────────────

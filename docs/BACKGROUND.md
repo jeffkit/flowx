@@ -96,7 +96,13 @@ L3 编排理念。不一次性大融合。
    **接单分拆层已落地**：`orchestrator/decompose.js`（LLM 受控分拆大目标 → 校验的子任务清单，刻意不做 DAG）
    + `orchestrateMulti`（分拆 → 每子任务生成一条 flow → `fanOut` 并发执行，两段都续跑锁定），
    CLI 入口 `flowx orchestrate "<大目标>" --split`。手写编排（todo-drain）与 LLM 分拆（orchestrateMulti）
-   共用 `fanOut` 这一底座。下一步是拿真实 agent 跑真实大目标做端到端 dogfooding。
+   共用 `fanOut` 这一底座。
+   **真实 agent 端到端已跑通**：`flowx orchestrate` 用真实 cursor-agent 自动生成 flow → 校验 →
+   隔离子进程执行 → agent 真的读文件、写文件、续跑锁定复用产物（exit 0）。由此固化一条约束：
+   **目标仓必须能解析 `@force-lab/flowx`**（即文档说的 `file:` 依赖模型），否则生成的 flow（`import` 本包）跑不起来；
+   `orchestrate`/`orchestrateMulti` 已加跑前预检 `checkFlowxResolvable`，缺依赖时毫秒级 fail-fast + 给出 `npm install` 指引，
+   不再像早期那样在校验阶段反复重试 module-not-found 而静默卡死。
+   下一步是把 `--split` 多任务也拿真实 agent 跑通（验证 LLM 分拆质量 + fanOut 隔离并发稳定性）。
 2. **revengers 选择性集成**：只取其 L3 编排理念（接单/分拆/调度/Arbiter），**不吞**其运行时（SQLite/daemon/锁/dashboard）。
 3. **review 健壮化**：goal 在 `recursive/.dev/flows/goals/001-self-review-structured-verdict.md`，留给 self-improve 自己 dogfooding。
 4. **selfImprove preset（通用内置 flow）**：暂缓（kongjie 决定先放）。

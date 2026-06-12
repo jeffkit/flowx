@@ -1,10 +1,36 @@
 // orchestrator/run.js — 执行生成的 flow（护栏③：子进程隔离 + 续跑锁定）
 
 import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs'
-import { join } from 'path'
+import { join, dirname } from 'path'
+import { createRequire } from 'module'
+import { fileURLToPath } from 'url'
 import { generateFlow } from './generate.js'
 import { decompose } from './decompose.js'
 import { runFlow, fanOut } from '../subflow.js'
+
+const FLOWX_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+
+/**
+ * 跑前预检：目标仓必须能解析到 @force-lab/flowx，否则生成的 flow（import 本包）跑不起来。
+ * 生成的 flow 住在 repo/.flowx/runs/.../flow.mjs，ESM 裸解析从该文件向上走 node_modules，
+ * 必经 repo/node_modules；用 repo 根的 require 解析做等价预检（向上能解析的它也能）。
+ * 覆盖三种 OK 场景：repo 即本包（自引用）/ npm install / npm link（符号链接）。
+ * @returns {{ok:true} | {ok:false, error:string}}
+ */
+export function checkFlowxResolvable(repo) {
+  try {
+    createRequire(join(repo, '__flowx_resolve_probe__.js')).resolve('@force-lab/flowx')
+    return { ok: true }
+  } catch {
+    return {
+      ok: false,
+      error: `目标仓无法解析 @force-lab/flowx，生成的 flow 跑不起来。\n` +
+        `请在目标仓安装本包后重试：\n` +
+        `  cd ${repo} && npm install ${FLOWX_ROOT}\n` +
+        `（或在其 package.json 加依赖 "@force-lab/flowx": "file:${FLOWX_ROOT}"）`,
+    }
+  }
+}
 
 /**
  * 子进程隔离跑一个 flow 文件（`node <file> ...`）。隔离 + 超时可控 + 崩溃不污染宿主。
@@ -34,6 +60,9 @@ export async function orchestrate(request, {
   agent, agents = {}, providers = {}, generate,
   dryRun = false, timeout, onData, extraArgs = [],
 } = {}) {
+  const dep = checkFlowxResolvable(repo)
+  if (!dep.ok) return { ok: false, stage: 'precheck', error: dep.error }
+
   const runDir = join(repo, '.flowx', 'runs', runId)
   const file = join(runDir, 'flow.mjs')
   let reused = false
@@ -74,6 +103,9 @@ export async function orchestrateMulti(goal, {
   agent, agents = {}, providers = {}, generate, decomposeGen,
   concurrency = 2, isolate = 'worktree', dryRun = false, timeout, onData,
 } = {}) {
+  const dep = checkFlowxResolvable(repo)
+  if (!dep.ok) return { ok: false, stage: 'precheck', runId, error: dep.error }
+
   const runDir = join(repo, '.flowx', 'runs', runId)
   mkdirSync(runDir, { recursive: true })
 

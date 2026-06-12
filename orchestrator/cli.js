@@ -63,6 +63,10 @@ export async function runOrchestrate(argv, { generate, onData = (d) => process.s
       repo, runId, agent: opts.agent, agents, providers,
       concurrency, isolate: opts.inplace ? 'none' : 'worktree', dryRun, timeout, onData,
     })
+    if (!r.ok && r.stage === 'precheck') {
+      console.error(`\n✗ 预检失败：\n${r.error}`)
+      return 1
+    }
     if (!r.ok && r.stage === 'decompose') {
       console.error(`\n✗ 分拆失败：${r.error}`)
       return 1
@@ -91,6 +95,10 @@ export async function runOrchestrate(argv, { generate, onData = (d) => process.s
     dryRun, timeout, onData, extraArgs,
   })
 
+  if (!r.ok && r.stage === 'precheck') {
+    console.error(`\n✗ 预检失败：\n${r.error}`)
+    return 1
+  }
   if (!r.ok && r.stage === 'generate') {
     console.error(`\n✗ 生成/校验失败（attempts=${r.attempts}）：${r.error}`)
     console.error(`  生成产物见：${r.file}`)
