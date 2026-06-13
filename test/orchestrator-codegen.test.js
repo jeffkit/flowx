@@ -65,7 +65,7 @@ test('runGeneratedFlow: 子进程 dry-run 跑黄金样例 exit 0', async () => {
   } finally { cleanRun(id) }
 })
 
-// ── 跑前预检：目标仓必须能解析 @force-lab/flowx ──────────────────
+// ── 跑前预检：目标仓必须能解析 flowcast ──────────────────
 
 test('checkFlowxResolvable: 本包仓自引用可解析', () => {
   assert.equal(checkFlowxResolvable(REPO).ok, true)
@@ -76,7 +76,7 @@ test('checkFlowxResolvable: 无依赖的临时仓 → 友好报错', () => {
   try {
     const r = checkFlowxResolvable(dir)
     assert.equal(r.ok, false)
-    assert.match(r.error, /@force-lab\/flowx/)
+    assert.match(r.error, /flowcast/)
     assert.match(r.error, /npm install/)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })

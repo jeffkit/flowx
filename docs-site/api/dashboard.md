@@ -3,7 +3,7 @@
 只读可观测看板：扫描 `.flowx/runs` 与 worktree，重建父子运行树、推断僵尸进程，生成单文件 HTML 快照。
 
 ```js
-import { collectRuns, renderHtml, generateDashboard } from '@force-lab/flowx'
+import { collectRuns, renderHtml, generateDashboard } from 'flowcast'
 ```
 
 ## CLI

@@ -3,7 +3,7 @@
  * <FLOW_TITLE>
  *
  * 由 flowx L3 codegen harness 生成（或手写）。遵循 orchestrator/FLOW_API.md 契约：
- * 只 import @force-lab/flowx，只用契约列出的原语，编排逻辑全部写在 main() 的占位处。
+ * 只 import flowcast，只用契约列出的原语，编排逻辑全部写在 main() 的占位处。
  */
 import { parseArgs } from 'util'
 import {
@@ -15,7 +15,7 @@ import {
   waitForInput, notify, setHitlBackend,
   writeFailureContext,
   isDryRun,
-} from '@force-lab/flowx'
+} from 'flowcast'
 
 const { values: opts } = parseArgs({ options: {
   'run-id':       { type: 'string' },

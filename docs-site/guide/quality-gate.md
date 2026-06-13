@@ -7,7 +7,7 @@
 质量门把测试、lint、构建等检查纳入 flow，红灯时按声明的策略处理。它抽象了 `self-improve.sh` 里反复出现的「跑检查 → 红灯按策略处理」模式。
 
 ```js
-import { runGate, runGates } from '@force-lab/flowx'
+import { runGate, runGates } from 'flowcast'
 
 await runGate({
   name: 'test',
@@ -68,7 +68,7 @@ await runGate(gate, { onEvent: (e) => cp.event(e.event, e) })
 `withSelfModGuard` 是 recursive（`self-improve.sh`）与 revengers（Self-Mod Guard）各自独立收敛到的同一个原语：**让 AI 改自己的代码时不致命**。
 
 ```js
-import { withSelfModGuard, captureBaseline } from '@force-lab/flowx'
+import { withSelfModGuard, captureBaseline } from 'flowcast'
 
 const result = await withSelfModGuard(async ({ repo, baseline }) => {
   await runAgent('重构 X 模块', { cli: 'claude' })

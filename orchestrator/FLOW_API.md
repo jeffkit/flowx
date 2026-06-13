@@ -1,6 +1,6 @@
 # Flow API 契约 — L3 codegen 的词汇表
 
-> 生成的 flow **只能**用本契约列出的 flowx 原语，**只能** import `@force-lab/flowx`。
+> 生成的 flow **只能**用本契约列出的 flowx 原语，**只能** import `flowcast`。
 > 这是 codegen 的受控表面：有代码的表达力，又可审计、可 dry-run、可断点续跑。
 
 ## 调用约定（骨架强制）
@@ -45,7 +45,7 @@
 
 ## 禁止项（validateFlow 会拦截）
 
-- import 任何非 `@force-lab/flowx`（除 `util` 用于 parseArgs）。**禁止** `fs`/`child_process`/
+- import 任何非 `flowcast`（除 `util` 用于 parseArgs）。**禁止** `fs`/`child_process`/
   `net`/`http`/`os` 等——需要文件/进程/git 操作时只能通过 flowx 原语。
 - 直接调 `process.exit` 之外的进程控制、动态 `require`/`import()` 任意模块。
 - 在 `main()` 外写副作用逻辑（骨架结构之外）。

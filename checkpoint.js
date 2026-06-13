@@ -19,6 +19,7 @@ export class Checkpoint {
     this.dir = join(stateDir, runId)
     this.path = join(this.dir, 'state.json')
     this.logPath = join(this.dir, 'run.log.jsonl')  // 每行一条结构化日志
+    this._inFlight = new Set()  // 重入保护：防止并发 step() 对同一 key 双重执行
     mkdirSync(this.dir, { recursive: true })
     this.state = existsSync(this.path)
       ? JSON.parse(readFileSync(this.path, 'utf8'))
@@ -32,6 +33,10 @@ export class Checkpoint {
       console.log(`  [skip] ${key}`)
       return this.state.completed[key]
     }
+    if (this._inFlight.has(key)) {
+      throw new Error(`Checkpoint.step: key "${key}" is already in-flight (concurrent call detected)`)
+    }
+    this._inFlight.add(key)
     console.log(`  [run]  ${key}`)
     this.state.currentStep = key
     this._flush()
@@ -43,11 +48,15 @@ export class Checkpoint {
       result = await fn()
     } catch (e) {
       error = e.message
+      this._inFlight.delete(key)
       this._log({ key, status: 'error', error, durationMs: Date.now() - startedAt, meta })
+      // 控制台打出完整 error，方便不翻 jsonl 就能诊断（e.message 里已包含 stderr）
+      console.error(`  [error] ${key}: ${error}`)
       throw e
     }
 
     const durationMs = Date.now() - startedAt
+    this._inFlight.delete(key)
     this.state.completed[key] = result
     this.state.currentStep = null
 

@@ -8,14 +8,14 @@
 - 一个目标 git 仓库（你要让 flowx 在里面干活）。
 - 至少一个可用的 LLM API key（如 DeepSeek / Anthropic）或一个已登录的 coding agent CLI（如 cursor-agent）。
 
-## 第 1 步：让目标仓能解析 `@force-lab/flowx`
+## 第 1 步：让目标仓能解析 `flowcast`
 
-这是最容易踩的坑：L3 生成的 flow 会 `import '@force-lab/flowx'`，**目标仓必须能解析到它**，否则 `orchestrate` 会在预检阶段毫秒级 fail-fast。
+这是最容易踩的坑：L3 生成的 flow 会 `import 'flowcast'`，**目标仓必须能解析到它**，否则 `orchestrate` 会在预检阶段毫秒级 fail-fast。
 
 ::: code-group
 ```bash [已发布到 npm]
 cd <你的目标仓>
-npm install @force-lab/flowx
+npm install flowcast
 ```
 ```bash [尚未发布 / 想用源码]
 git clone https://github.com/jeffkit/flowx.git ~/projects/flowx
@@ -26,7 +26,7 @@ npm install ~/projects/flowx
 
 **确认成功**：
 ```bash
-node -e "import('@force-lab/flowx').then(m => console.log('ok:', Object.keys(m).length, 'exports'))"
+node -e "import('flowcast').then(m => console.log('ok:', Object.keys(m).length, 'exports'))"
 # 期望输出：ok: <数字> exports
 ```
 

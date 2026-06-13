@@ -1,7 +1,7 @@
 # API · 质量门 / 自改沙箱
 
 ```js
-import { runGate, runGates, withSelfModGuard, captureBaseline, writeFailureContext, readAndConsumeFailureContext } from '@force-lab/flowx'
+import { runGate, runGates, withSelfModGuard, captureBaseline, writeFailureContext, readAndConsumeFailureContext } from 'flowcast'
 ```
 
 ## runGate(gate, deps?)

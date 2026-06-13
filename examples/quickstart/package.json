@@ -9,7 +9,7 @@
     "start": "node flow.mjs --repo ."
   },
   "dependencies": {
-    "@force-lab/flowx": "github:jeffkit/flowx"
+    "flowcast": "github:jeffkit/flowx"
   },
   "engines": { "node": ">=20" }
 }

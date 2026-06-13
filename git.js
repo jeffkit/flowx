@@ -1,4 +1,4 @@
-// git.js — 生成的 flow 可用的 git 原语（从 @force-lab/flowx 暴露，绕开 child_process 白名单）
+// git.js — 生成的 flow 可用的 git 原语（从 flowcast 暴露，绕开 child_process 白名单）
 //
 // 生成的 flow 受 import 白名单约束（不能直接用 child_process），但常需要 git commit/diff。
 // 通过 flowx 暴露这组受控 helper，让编排逻辑提交改动而无需裸调 shell。

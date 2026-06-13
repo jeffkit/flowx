@@ -1,6 +1,6 @@
 # 介绍
 
-`@force-lab/flowx` 是一个**轻量 workflow 编排框架**：断点续跑、HITL（人工介入）、多 CLI/agent 调度、自改安全沙箱、质量门，以及在其之上的 **L3 codegen 编排层**（动态生成并执行 flow）。
+`flowcast` 是一个**轻量 workflow 编排框架**：断点续跑、HITL（人工介入）、多 CLI/agent 调度、自改安全沙箱、质量门，以及在其之上的 **L3 codegen 编排层**（动态生成并执行 flow）。
 
 它的设计约束很简单也很硬：**零运行时依赖、纯 ESM、Node ≥ 20**。
 

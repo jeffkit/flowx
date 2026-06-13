@@ -9,7 +9,7 @@ import {
   spawnCapture, resolveRecursiveBin, recursiveProviderEnv, claudeProviderEnv, isProviderRetryable,
   parallel, pipeline,
   waitForInput, notify, setHitlBackend, getHitlBackend,
-} from '@force-lab/flowx'
+} from 'flowcast'
 ```
 
 ## runAgent

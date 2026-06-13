@@ -23,7 +23,7 @@ report.md        → done 后生成的可读摘要
 ## 基本用法
 
 ```js
-import { Checkpoint } from '@force-lab/flowx'
+import { Checkpoint } from 'flowcast'
 
 const cp = new Checkpoint(runId)   // runId 缺省自动生成；续跑必须传同一个
 

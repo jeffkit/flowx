@@ -12,7 +12,7 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
 // ── scanImports ──────────────────────────────────────────────────
 
 test('scanImports: 白名单放行', () => {
-  const src = `import { Checkpoint } from '@force-lab/flowx'\nimport { parseArgs } from 'util'`
+  const src = `import { Checkpoint } from 'flowcast'\nimport { parseArgs } from 'util'`
   assert.deepEqual(scanImports(src), [])
 })
 
@@ -42,7 +42,7 @@ test('validateFlow: 语法错误被拦（syntax 关）', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'flowx-bad-'))
   try {
     const f = join(dir, 'syntax-err.js')
-    writeFileSync(f, `import { x } from '@force-lab/flowx'\nfunction main( {\n`)
+    writeFileSync(f, `import { x } from 'flowcast'\nfunction main( {\n`)
     const r = await validateFlow(f, { cwd: REPO })
     assert.equal(r.ok, false)
     assert.match(r.error, /^\[syntax\]/)
@@ -55,7 +55,7 @@ test('validateFlow: 违规 import 被拦（imports 关）', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'flowx-bad-'))
   try {
     const f = join(dir, 'bad-import.js')
-    writeFileSync(f, `import { Checkpoint } from '@force-lab/flowx'\nimport { writeFileSync } from 'fs'\nawait Promise.resolve()\n`)
+    writeFileSync(f, `import { Checkpoint } from 'flowcast'\nimport { writeFileSync } from 'fs'\nawait Promise.resolve()\n`)
     const r = await validateFlow(f, { cwd: REPO })
     assert.equal(r.ok, false)
     assert.match(r.error, /^\[imports\]/)

@@ -5,7 +5,7 @@
  * - dry-run（npm run dry）：零配置即可跑通骨架（执行器被 fake，不烧 API）。
  * - 真跑（npm run start）：需要 ~/.flowx/agents.json 里有 --agent 指定的 profile。
  *
- * 只 import @force-lab/flowx（+ util），只用 FLOW_API 词汇表的原语——
+ * 只 import flowcast（+ util），只用 FLOW_API 词汇表的原语——
  * 这与 L3 生成的 flow 同构，可被 dry-run 校验。
  */
 import { parseArgs } from 'util'
@@ -13,7 +13,7 @@ import {
   Checkpoint, setWorkdir,
   loadAgents, loadProviders, resolveAgent,
   notify, setHitlBackend,
-} from '@force-lab/flowx'
+} from 'flowcast'
 
 const { values: opts } = parseArgs({ options: {
   'run-id':       { type: 'string' },

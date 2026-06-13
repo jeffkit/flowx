@@ -101,3 +101,40 @@ test('Checkpoint.step 仍跳过已 record 的 key', async () => {
     assert.ok(existsSync(join(dir, 'r3', 'state.json')))
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
+
+test('Checkpoint.step: 重入同一 key 抛错（并发双重执行保护）', async () => {
+  const dir = tempDir()
+  try {
+    const cp = new Checkpoint('r-reentry', dir)
+    // 第一个 step 还在异步等待中，第二个用相同 key 立刻 step → 应抛错
+    let firstStarted = false
+    const first = cp.step('s1', async () => {
+      firstStarted = true
+      await new Promise(res => setTimeout(res, 50))  // 故意挂着
+      return 'first'
+    })
+    // 等第一个开始执行后，立刻并发第二个
+    await new Promise(res => setTimeout(res, 5))
+    assert.equal(firstStarted, true)
+    await assert.rejects(
+      () => cp.step('s1', async () => 'second'),
+      /in-flight/,
+    )
+    await first  // 第一个正常完成
+    assert.equal(cp.state.completed['s1'], 'first')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('Checkpoint.step: fn 抛错后 _inFlight 清理，同一 key 可重试', async () => {
+  const dir = tempDir()
+  try {
+    const cp = new Checkpoint('r-retry', dir)
+    await assert.rejects(
+      () => cp.step('s1', async () => { throw new Error('boom') }),
+      /boom/,
+    )
+    // 失败后 inFlight 应已清理，可以重试
+    const out = await cp.step('s1', async () => 'recovered')
+    assert.equal(out, 'recovered')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})

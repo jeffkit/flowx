@@ -3,7 +3,7 @@
 断点续跑的步骤记录器。把一条 flow 拆成可记录、可跳过的步骤，状态落盘在 `.flowx/runs/<run-id>/`。
 
 ```js
-import { Checkpoint } from '@force-lab/flowx'
+import { Checkpoint } from 'flowcast'
 ```
 
 ## 构造

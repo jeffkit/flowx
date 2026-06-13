@@ -57,7 +57,7 @@ flowx 为 revengers 提供的是**进程定义/编排层**：revengers 接单分
 - **项目特定 flow + 配置**（质量门命令、provider 名）→ 放**各自项目仓**，通过 `file:` 依赖把 flowx 当库消费。
 - **机器级状态/密钥**（run checkpoints、API key）→ `~/.flowx/` 或 gitignore 的 `.flowx/`。
 
-> 实证：recursive 的自改 flow 已迁回 `recursive/.dev/flows/`，import `@force-lab/flowx`，
+> 实证：recursive 的自改 flow 已迁回 `recursive/.dev/flows/`，import `flowcast`，
 > `npm test` 双 E2E 全绿——验证了"库消费模型"成立。
 
 ### 3.3 L3 = codegen 唯一主路径，不做 DAG
@@ -99,7 +99,7 @@ L3 编排理念。不一次性大融合。
    共用 `fanOut` 这一底座。
    **真实 agent 端到端已跑通**：`flowx orchestrate` 用真实 cursor-agent 自动生成 flow → 校验 →
    隔离子进程执行 → agent 真的读文件、写文件、续跑锁定复用产物（exit 0）。由此固化一条约束：
-   **目标仓必须能解析 `@force-lab/flowx`**（即文档说的 `file:` 依赖模型），否则生成的 flow（`import` 本包）跑不起来；
+   **目标仓必须能解析 `flowcast`**（即文档说的 `file:` 依赖模型），否则生成的 flow（`import` 本包）跑不起来；
    `orchestrate`/`orchestrateMulti` 已加跑前预检 `checkFlowxResolvable`，缺依赖时毫秒级 fail-fast + 给出 `npm install` 指引，
    不再像早期那样在校验阶段反复重试 module-not-found 而静默卡死。
    下一步是把 `--split` 多任务也拿真实 agent 跑通（验证 LLM 分拆质量 + fanOut 隔离并发稳定性）。

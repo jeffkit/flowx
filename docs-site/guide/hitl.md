@@ -5,7 +5,7 @@ HITL（Human-in-the-Loop）让 flow 在关键节点**阻塞等人工决策**或*
 ## 两个原语
 
 ```js
-import { waitForInput, notify, setHitlBackend } from '@force-lab/flowx'
+import { waitForInput, notify, setHitlBackend } from 'flowcast'
 
 await notify('分析完成，开始生成 PR')          // 单向通知，不等待
 const answer = await waitForInput('确认要合并吗？(y/n)')   // 阻塞等人工输入

@@ -1,4 +1,4 @@
-// @force-lab/flowx 公共 API
+// flowcast 公共 API
 export { Checkpoint } from './checkpoint.js'
 export {
   runAgent, runAgentChain, setWorkdir, setAgentEventSink,

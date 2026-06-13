@@ -4,11 +4,11 @@
 
 - `orchestrator/FLOW_API.md`：codegen 词汇表 + 标准 CLI 约定（`--repo/--run-id/--goal/--dry-run/…`）+
   允许原语清单 + 禁止项（非白名单 import、任意 fs/进程/网络、main() 外副作用）。
-- `orchestrator/templates/flow-skeleton.js`：固定骨架，imports 仅 `@force-lab/flowx`+`util`，
+- `orchestrator/templates/flow-skeleton.js`：固定骨架，imports 仅 `flowcast`+`util`，
   处理 parseArgs/Checkpoint/loadAgents/HITL/`runProfile`，`main()` 内留 `// <<ORCHESTRATION>>`。
 - `orchestrator/examples/golden-sample.flow.js`：并行多 agent 分析 → 质量门 → 综合收口；
   100% 遵循契约。
-- 验证：`@force-lab/flowx` 自引用（package exports + name）在仓内可解析；临时 git repo dry-run
+- 验证：`flowcast` 自引用（package exports + name）在仓内可解析；临时 git repo dry-run
   跑通（analyze/gate.lint/synthesize 步骤、fake 执行器/质量门、notify），exit 0。
 
 ## M2 — dry-run 能力 + validateFlow（✅）
@@ -37,7 +37,7 @@
 ## M4 — runGeneratedFlow + git helper（✅）
 
 - `git.js`（解待解项）：`gitStatus` / `gitDiff` / `gitCommitAll`（dry-run 不实际提交），从 index 暴露；
-  生成的 flow 通过 `@force-lab/flowx` import 即可 commit，无需裸调 child_process。FLOW_API.md 已登记。
+  生成的 flow 通过 `flowcast` import 即可 commit，无需裸调 child_process。FLOW_API.md 已登记。
 - `orchestrator/run.js`：
   - `runGeneratedFlow(file, opts)`：`node <file>` spawn 子进程跑（隔离 + 超时 kill + 崩溃不污染宿主）。
   - `orchestrate(request, opts)`：需求 →（生成 or 复用）→ 执行；**续跑锁定**——run 目录已有 flow.mjs
@@ -57,5 +57,5 @@
 
 - `node --check` 对无 `package.json` 的 `.js` 按 CJS 判定，语法错误漏过 → 改用 `.mjs` 副本校验。
 - dry-run 需容忍「未配置的 agent」否则结构冒烟在 loadAgents 为空时即崩 → resolveAgent dry-run 分支返回 fake。
-- `@force-lab/flowx` 自引用按「文件所在包作用域」解析（与 cwd 无关）→ 生成的 flow 文件必须落在装了
+- `flowcast` 自引用按「文件所在包作用域」解析（与 cwd 无关）→ 生成的 flow 文件必须落在装了
   flowx 的项目内（或仓内）才能 import 到。

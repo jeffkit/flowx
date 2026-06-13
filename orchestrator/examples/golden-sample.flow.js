@@ -3,7 +3,7 @@
  * 黄金样例：并行多 agent 分析 → 质量门 → 综合收口。
  *
  * 既当 codegen few-shot，又当 validateFlow 的 dry-run 验证靶子。
- * 100% 遵循 orchestrator/FLOW_API.md：只 import @force-lab/flowx，只用契约原语，编排全在 main()。
+ * 100% 遵循 orchestrator/FLOW_API.md：只 import flowcast，只用契约原语，编排全在 main()。
  */
 import { parseArgs } from 'util'
 import {
@@ -12,7 +12,7 @@ import {
   runGate,
   parallel,
   notify, setHitlBackend,
-} from '@force-lab/flowx'
+} from 'flowcast'
 
 const { values: opts } = parseArgs({ options: {
   'run-id':       { type: 'string' },

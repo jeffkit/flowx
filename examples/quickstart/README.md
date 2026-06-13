@@ -14,7 +14,7 @@ npm install
 ```
 
 > `package.json` 里依赖的是 `github:jeffkit/flowx`，所以**无需等 npm 发布**即可安装。
-> flowx 发布到 npm 后，可把依赖改成 `"@force-lab/flowx": "^0.1.0"`。
+> flowx 发布到 npm 后，可把依赖改成 `"flowcast": "^0.1.0"`。
 
 ### 1. 先 dry-run（零配置、不烧 API）
 
@@ -58,7 +58,7 @@ node flow.mjs --repo . --run-id <上次的 run-id>
 - `Checkpoint` 把 flow 拆成可续跑的 `cp.step`
 - `resolveAgent` 按 profile 名解析执行器（dry-run 自动 fake）
 - `setHitlBackend` + `notify` 的 HITL
-- 只 `import @force-lab/flowx`（+ `util`），与 L3 生成的 flow 同构
+- 只 `import flowcast`（+ `util`），与 L3 生成的 flow 同构
 
 ## 下一步
 

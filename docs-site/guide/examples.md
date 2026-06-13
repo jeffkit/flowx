@@ -1,10 +1,10 @@
 # 示例
 
-flowx 仓内的 `flows/` 与 `orchestrator/examples/` 提供了几个可读、可跑的活样例。
+flowx 仓内的 `examples/` 与 `orchestrator/examples/` 提供了几个可读、可跑的活样例。
 
 ## 黄金样例：并行分析 → 质量门 → 收口
 
-`orchestrator/examples/golden-sample.flow.js` 既是 L3 codegen 的 few-shot，又是 `validateFlow` 的 dry-run 验证靶子。它 100% 遵循 [FLOW_API](/api/) 契约：只 import `@force-lab/flowx`，只用契约原语，编排全在 `main()`。
+`orchestrator/examples/golden-sample.flow.js` 既是 L3 codegen 的 few-shot，又是 `validateFlow` 的 dry-run 验证靶子。它 100% 遵循 [FLOW_API](/api/) 契约：只 import `flowcast`，只用契约原语，编排全在 `main()`。
 
 ```js
 import { parseArgs } from 'util'
@@ -12,7 +12,7 @@ import {
   Checkpoint, setWorkdir,
   loadAgents, loadProviders, resolveAgent,
   runGate, parallel, notify, setHitlBackend,
-} from '@force-lab/flowx'
+} from 'flowcast'
 
 // ...骨架处理参数解析 / Checkpoint / loadAgents / HITL 后端...
 
@@ -43,32 +43,34 @@ async function main() {
 FLOWX_DRY_RUN=1 flowx run ./orchestrator/examples/golden-sample.flow.js --goal "src,lib"
 ```
 
-## force-dev：标准开发工作流
+## force-dev：FORCE Lab 标准开发工作流
 
-`flows/force-dev.js` 是 FORCE Lab 标准开发流：**建分支 → 写码 → 审查 → PR**，全程断点续跑，关键节点 HITL 确认。
-
-```bash
-flowx force-dev --feature add-login --repo .
-flowx force-dev --run-id run-1234567890      # 断点续跑，不需重传参数
-flowx list                                    # 列出所有 run
-```
-
-它综合用到了 `Checkpoint`、`runAgentChain`（跨 CLI 回退）、`parallel`、`waitForInput`、`runGates`、git 原语。批量模式下可由 `todo-drain` 通过 `--prompt-file` 调用，跳过 HITL。
-
-## todo-drain：批量消化 TODO
-
-`flows/todo-drain.js` 展示「**拆多组 → fanOut 并发跑子 flow → 隔离 → 汇总**」这套通用编排：
+`force-dev` 是 FORCE Lab 的标准开发 flow：**建分支 → 写码 → 审查 → PR**，全程断点续跑，关键节点 HITL 确认。它由 [force-lab 仓](https://github.com/jeffkit/force-lab) 维护，不随 flowx 包发布，需要单独安装。
 
 ```bash
-flowx run ./flows/todo-drain.js --todo ./TODO.md --repo .
-flowx run ./flows/todo-drain.js --dry-run        # 只显示分组，不执行
+# 从 force-lab 仓安装（一次性）
+flowx flows install /path/to/force-lab/flows/force-dev.js
+
+# 之后在任意编码项目里使用
+flowx run force-dev --feature add-login --repo .
+flowx run force-dev --run-id run-1234567890      # 断点续跑，不需重传参数
+flowx list                                        # 列出所有 run（依赖已安装的 force-dev）
 ```
 
-设计要点：
+它综合用到了 `Checkpoint`、`runAgentChain`（跨 CLI 回退）、`waitForInput`、`runGates`、git 原语。批量模式下可通过 `--prompt-file` 跳过 HITL 确认。
 
-- TODO.md 的**解析 / 分组 / 回写**是业务特定逻辑，留在本脚本。
-- 「拆成多组 → 并发跑子 flow → 隔离 → 汇总」是**通用编排**，复用 flowx 的 `fanOut` 原语。
-- L3 接单分拆（`orchestrateMulti`）只需把 `parseTodos` / `groupTodos` 换成「LLM 生成任务清单」，**同样喂给 `fanOut`**——手写编排与 LLM 分拆共用同一底座。
+## goal-drive：goal-driven loop 样例
+
+`examples/goal-drive.js` 展示用 `loop` 原语「**反复跑 agent 直到目标达成**」：
+
+```bash
+# 安装后按名字跑
+flowx flows install ./examples/goal-drive.js
+flowx run goal-drive --goal "让 npm test 全绿" --gate "npm test" --repo .
+flowx run goal-drive --dry-run   # 假执行器，验证骨架
+```
+
+设计要点：`loop / memory / quality-gate / runAgent` 都是 flowx 一等原语，本 flow 只做薄编排。「反复跑到达成、且越跑越聪明」是通用能力。
 
 ## L3 一行需求
 

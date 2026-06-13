@@ -9,33 +9,46 @@
 
 ## 安装
 
-flowx 设计为**作为库被项目消费**。推荐用 `file:` 依赖把它接进你的项目仓：
+flowx 有两种使用方式：
+
+### 全局安装 CLI（推荐）
 
 ```bash
-# 1. 克隆 flowx
-git clone https://github.com/jeffkit/flowx.git ~/projects/flowx
-
-# 2. 在你的项目仓里以 file: 依赖引入
-cd ~/projects/your-repo
-npm install ~/projects/flowx
+npm install -g flowcast
+flowx --help
 ```
 
-或直接从 npm 安装（如果已发布）：
+全局安装后，`flowx` 命令在任何目录都可用。业务项目**无需**自己的 `package.json` 或 `node_modules`。
+
+### 项目内安装（用于 L3 orchestrate）
+
+L3 编排会**生成 import 本包的 flow 代码**，生成的 flow 需要在目标仓解析 `flowcast`：
 
 ```bash
-npm install @force-lab/flowx
+cd <目标仓> && npm install flowcast
 ```
 
-::: tip 为什么用 file: 依赖
-L3 编排会**生成 import 本包的 flow 代码**，因此目标仓必须能解析 `@force-lab/flowx`。
-`orchestrate` 会在跑前预检 `checkFlowxResolvable`，缺依赖时毫秒级 fail-fast 并给出 `npm install` 指引。
-:::
+`orchestrate` 在跑前会预检 `checkFlowxResolvable`，缺依赖时毫秒级 fail-fast 并给出安装指引。
 
-安装后即可用 CLI：
+### 安装社区 / 团队 flow
+
+flow 是独立的 JS 文件，可从任何来源安装到 `~/.flowx/flows/`：
 
 ```bash
-npx flowx --help
-# 或把 bin 软链到 PATH 后直接 flowx --help
+# 从本地路径安装
+flowx flows install ./path/to/my-flow.js
+
+# 查看已安装的 flow
+flowx flows list
+
+# 移除
+flowx flows remove my-flow
+```
+
+安装后即可按名字运行，无需指定路径：
+
+```bash
+flowx run my-flow --repo .
 ```
 
 ## 第一个 flow
@@ -45,7 +58,7 @@ npx flowx --help
 ```js
 // flows/hello.js
 import { parseArgs } from 'util'
-import { Checkpoint, setWorkdir, runAgent } from '@force-lab/flowx'
+import { Checkpoint, setWorkdir, runAgent } from 'flowcast'
 
 const { values: opts } = parseArgs({ options: {
   'run-id': { type: 'string' },
@@ -129,11 +142,13 @@ flowx dashboard --repo . --open
 
 | 命令 | 作用 |
 |------|------|
-| `flowx force-dev --feature x --repo .` | 跑内置 force-dev flow（建分支 → 写码 → 审查 → PR） |
+| `flowx run <name\|file> [args]` | 按名字运行已安装的 flow，或直接运行 flow 文件 |
+| `flowx flows list` | 列出 `~/.flowx/flows/` 下已安装的 flow |
+| `flowx flows install <file>` | 安装 flow 到 `~/.flowx/flows/` |
+| `flowx flows remove <name>` | 移除已安装的 flow |
 | `flowx orchestrate "<目标>" --repo .` | L3：一行需求 → 生成 → 校验 → 执行 |
 | `flowx orchestrate "<大目标>" --split` | L3 接单分拆：拆子任务 → 各自生成 → fanOut 并发 |
 | `flowx dashboard --repo . [--open]` | 生成只读可观测看板 HTML |
-| `flowx run <flow.js> [args]` | 跑任意自定义 flow |
-| `flowx list` | 列出当前项目所有 run |
+| `flowx list` | 列出当前项目所有 run（需安装 force-dev flow） |
 
 下一步：理解 [三层架构](/guide/architecture)。

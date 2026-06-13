@@ -1,18 +1,17 @@
 {
-  "name": "@force-lab/flowx",
+  "name": "flowcast",
   "version": "0.1.0",
   "description": "轻量 workflow 编排框架：断点续跑、HITL、多 CLI 调度",
   "type": "module",
   "main": "index.js",
   "exports": {
-    ".": "./index.js",
-    "./flows/*": "./flows/*.js"
+    ".": "./index.js"
   },
   "bin": {
     "flowx": "./bin/flowx.js"
   },
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/*.test.js"
   },
   "files": [
     "index.js",
@@ -28,10 +27,10 @@
     "subflow.js",
     "loop.js",
     "memory.js",
-    "flows/",
     "orchestrator/",
     "dashboard/",
     "examples/",
+    "skills/",
     "bin/"
   ],
   "keywords": ["workflow", "agent", "cli", "claude", "cursor", "automation"],

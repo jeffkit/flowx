@@ -11,7 +11,7 @@ import { runFlow, fanOut } from '../subflow.js'
 const FLOWX_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 /**
- * 跑前预检：目标仓必须能解析到 @force-lab/flowx，否则生成的 flow（import 本包）跑不起来。
+ * 跑前预检：目标仓必须能解析到 flowcast，否则生成的 flow（import 本包）跑不起来。
  * 生成的 flow 住在 repo/.flowx/runs/.../flow.mjs，ESM 裸解析从该文件向上走 node_modules，
  * 必经 repo/node_modules；用 repo 根的 require 解析做等价预检（向上能解析的它也能）。
  * 覆盖三种 OK 场景：repo 即本包（自引用）/ npm install / npm link（符号链接）。
@@ -19,15 +19,15 @@ const FLOWX_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
  */
 export function checkFlowxResolvable(repo) {
   try {
-    createRequire(join(repo, '__flowx_resolve_probe__.js')).resolve('@force-lab/flowx')
+    createRequire(join(repo, '__flowx_resolve_probe__.js')).resolve('flowcast')
     return { ok: true }
   } catch {
     return {
       ok: false,
-      error: `目标仓无法解析 @force-lab/flowx，生成的 flow 跑不起来。\n` +
+      error: `目标仓无法解析 flowcast，生成的 flow 跑不起来。\n` +
         `请在目标仓安装本包后重试：\n` +
         `  cd ${repo} && npm install ${FLOWX_ROOT}\n` +
-        `（或在其 package.json 加依赖 "@force-lab/flowx": "file:${FLOWX_ROOT}"）`,
+        `（或在其 package.json 加依赖 "flowcast": "file:${FLOWX_ROOT}"）`,
     }
   }
 }

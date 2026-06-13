@@ -36,7 +36,7 @@
 ## 对外 API（codegen harness）
 
 ```js
-import { generateFlow, validateFlow, runGeneratedFlow, orchestrate } from '@force-lab/flowx/orchestrator/...'
+import { generateFlow, validateFlow, runGeneratedFlow, orchestrate } from 'flowcast/orchestrator/...'
 // orchestrate(request, { repo, runId, agent, agents, providers, generate?, dryRun }) —— 一站式：生成→校验→执行，续跑锁定
 ```
 

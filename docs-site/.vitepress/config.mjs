@@ -101,7 +101,7 @@ export default defineConfig({
 
     footer: {
       message: '基于 MIT 许可发布',
-      copyright: 'Copyright © 2026 jeffkit · @force-lab/flowx',
+      copyright: 'Copyright © 2026 jeffkit · flowcast',
     },
 
     search: {

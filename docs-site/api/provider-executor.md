@@ -6,7 +6,7 @@
 import {
   interpolateEnv, loadProviders, resolveProvider, loadMergedConfig, basenamesFor,
   EXECUTORS, getExecutor, loadAgents, resolveAgent,
-} from '@force-lab/flowx'
+} from 'flowcast'
 ```
 
 ## Provider
