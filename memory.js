@@ -1,5 +1,6 @@
 import { mkdirSync, appendFileSync, readFileSync, existsSync } from 'fs'
 import { join } from 'path'
+import { flowcastDir } from './dirs.js'
 
 // ── memory：轻量「跨-run」记忆（learnings 的持久累积）─────────────────
 //
@@ -13,7 +14,7 @@ import { join } from 'path'
 // 存储：<baseDir>/<scope>.jsonl，每行一条 {ts, topic, rootCause, fix, tags, runId}。
 // scope 用来隔离不同目标/项目的记忆（如 'force-dev' / 'self-improve'）。
 
-const DEFAULT_BASE = '.flowx/memory'
+const defaultBase = () => flowcastDir(process.cwd()) + '/memory'
 
 function scopePath(baseDir, scope) {
   const safe = String(scope).replace(/[^a-zA-Z0-9._-]/g, '_')
@@ -56,7 +57,7 @@ function scoreEntry(entry, terms) {
  * @param {object} [opts] - baseDir 覆盖默认 .flowx/memory
  * @returns {object} 实际写入的记录（含 ts）
  */
-export function recordLearning(scope, entry = {}, { baseDir = DEFAULT_BASE } = {}) {
+export function recordLearning(scope, entry = {}, { baseDir = defaultBase() } = {}) {
   const rec = {
     ts: new Date().toISOString(),
     topic: entry.topic ?? 'untitled',
@@ -75,7 +76,7 @@ export function recordLearning(scope, entry = {}, { baseDir = DEFAULT_BASE } = {
  * 无 query 时返回最近 K 条。
  * @returns {object[]} 排序后的记录（最多 topK 条）
  */
-export function recall(scope, { query = '', topK = 5, baseDir = DEFAULT_BASE } = {}) {
+export function recall(scope, { query = '', topK = 5, baseDir = defaultBase() } = {}) {
   const entries = readEntries(baseDir, scope)
   if (entries.length === 0) return []
   const terms = String(query).toLowerCase().split(/\s+/).filter(Boolean)
@@ -98,7 +99,7 @@ export function recall(scope, { query = '', topK = 5, baseDir = DEFAULT_BASE } =
  * 产出可注入 prompt 的 markdown 块（对应 Ralph progress.md / revengers buildLearningSection）。
  * 无相关记忆时返回空串（调用方按需拼接，不污染 prompt）。
  */
-export function buildMemorySection(scope, { query = '', topK = 5, baseDir = DEFAULT_BASE } = {}) {
+export function buildMemorySection(scope, { query = '', topK = 5, baseDir = defaultBase() } = {}) {
   const hits = recall(scope, { query, topK, baseDir })
   if (hits.length === 0) return ''
   const lines = hits.map((h) => {
@@ -118,7 +119,7 @@ export function buildMemorySection(scope, { query = '', topK = 5, baseDir = DEFA
  * @param {object} [meta] - { topic, tags, runId }
  * @returns {object|null} 写入的记录，content 为空则不写、返回 null
  */
-export function promoteFailureContext(scope, failureContent, meta = {}, { baseDir = DEFAULT_BASE } = {}) {
+export function promoteFailureContext(scope, failureContent, meta = {}, { baseDir = defaultBase() } = {}) {
   if (!failureContent) return null
   return recordLearning(scope, {
     topic: meta.topic ?? 'previous attempt failed',

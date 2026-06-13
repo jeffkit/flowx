@@ -15,6 +15,7 @@ import {
   waitForInput, notify, setHitlBackend,
   writeFailureContext,
   isDryRun,
+  flowcastDir,
 } from 'flowcast'
 
 const { values: opts } = parseArgs({ options: {
@@ -37,7 +38,7 @@ const goal = opts.goal ?? ''
 setWorkdir(repo)
 setHitlBackend(opts.hitl === 'wecom' ? 'wecom' : 'terminal', { projectName: opts['project-name'] })
 
-const cp = new Checkpoint(runId)
+const cp = new Checkpoint(runId, flowcastDir(repo) + '/runs')
 const [agents, providers] = await Promise.all([loadAgents({ repo }), loadProviders({ repo })])
 
 await main()

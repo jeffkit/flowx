@@ -11,6 +11,7 @@ import { mkdirSync, openSync, closeSync, existsSync, cpSync } from 'fs'
 import { dirname, join } from 'path'
 import { gitWorktreeAdd } from './git.js'
 import { isDryRun } from './dry-run.js'
+import { flowcastDir } from './dirs.js'
 
 /**
  * 把一个 flow 文件当独立 node 子进程跑（隔离 + 超时可控；崩溃不污染宿主）。
@@ -155,8 +156,8 @@ export async function fanOut(tasks, {
  */
 export function archiveChildRun(repo, worktree, childRunId) {
   if (!worktree || !childRunId) return false
-  const src = join(worktree, '.flowx', 'runs', childRunId)
-  const dst = join(repo, '.flowx', 'runs', childRunId)
+  const src = join(flowcastDir(worktree), 'runs', childRunId)
+  const dst = join(flowcastDir(repo), 'runs', childRunId)
   if (!existsSync(src) || src === dst) return false
   try {
     mkdirSync(dirname(dst), { recursive: true })

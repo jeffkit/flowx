@@ -20,6 +20,7 @@ import { existsSync, readFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
+import { flowcastDir } from './dirs.js'
 
 /** 给定配置文件 stem，返回按优先级排列的候选文件名。 */
 export function basenamesFor(stem) {
@@ -80,7 +81,7 @@ async function loadConfigFile(file) {
  * @returns {Promise<Record<string, object>>}
  */
 export async function loadMergedConfig(basenames, { repo, dirs, key } = {}) {
-  const searchDirs = dirs ?? [join(homedir(), '.flowx'), ...(repo ? [join(repo, '.flowx')] : [])]
+  const searchDirs = dirs ?? [join(homedir(), '.flowx'), ...(repo ? [flowcastDir(repo)] : [])]
   let merged = {}
   for (const dir of searchDirs) {
     for (const base of basenames) {

@@ -22,7 +22,7 @@
 import { parseArgs } from 'util'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { loop, runAgent, setWorkdir, runGate, recordLearning } from 'flowcast'
+import { loop, runAgent, setWorkdir, runGate, recordLearning, flowcastDir } from 'flowcast'
 
 const { values: opts } = parseArgs({
   options: {
@@ -73,7 +73,7 @@ const result = await loop(
   {
     goal,
     runId,
-    stateDir: join(repo, '.flowx/runs'),
+    stateDir: join(flowcastDir(repo), 'runs'),
     maxTurns,
     memoryScope,
     // 每轮硬验证用软判定：把 --gate 的成败转成 isDone 信号（红灯=未达成、再来一轮）。

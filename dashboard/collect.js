@@ -14,6 +14,7 @@
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'fs'
 import { join } from 'path'
+import { flowcastDir } from '../dirs.js'
 
 export const DEFAULT_STALE_MS = 10 * 60 * 1000   // 10 分钟无活动且仍 running → 僵尸
 const DEFAULT_LOG_TAIL_LINES = 120               // 每个 .log 只嵌入尾部 N 行
@@ -229,11 +230,11 @@ export function collectRuns(repo, {
     }
   }
 
-  scanRunsRoot(join(repo, '.flowx', 'runs'))
+  scanRunsRoot(join(flowcastDir(repo), 'runs'))
   if (includeWorktrees) {
     const wtRoot = join(repo, '.worktrees')
     for (const wt of safeReaddir(wtRoot)) {
-      scanRunsRoot(join(wtRoot, wt, '.flowx', 'runs'))
+      scanRunsRoot(join(flowcastDir(join(wtRoot, wt)), 'runs'))
     }
   }
 

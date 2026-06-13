@@ -3,6 +3,7 @@ import { writeFileSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
 import { collectRuns } from './collect.js'
 import { renderHtml } from './render.js'
+import { flowcastDir } from '../dirs.js'
 
 export { collectRuns } from './collect.js'
 export { renderHtml } from './render.js'
@@ -18,7 +19,7 @@ export { renderHtml } from './render.js'
  */
 export function generateDashboard({ repo = process.cwd(), out, staleMs, now } = {}) {
   const model = collectRuns(repo, { staleMs, now })
-  const outPath = out ?? `${repo}/.flowx/dashboard.html`
+  const outPath = out ?? `${flowcastDir(repo)}/dashboard.html`
   mkdirSync(dirname(outPath), { recursive: true })
   writeFileSync(outPath, renderHtml(model))
   return { out: outPath, model }
