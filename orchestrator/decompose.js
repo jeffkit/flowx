@@ -9,7 +9,7 @@ import { resolveAgent } from '../executor.js'
 /** 构建分拆提示：要求只输出一个 JSON 数组，每项 {name, goal, agent?}。 */
 export function buildDecomposePrompt(goal, { agentsList = [], priorError } = {}) {
   const agentsLine = agentsList.length ? agentsList.join(', ') : '(无预置 agent，留空 agent 字段即可)'
-  let p = `You are a task decomposer for the flowx orchestrator.
+  let p = `You are a task decomposer for the flowcast orchestrator.
 Split the BIG GOAL into a flat list of INDEPENDENT sub-tasks that can run in parallel.
 Do NOT introduce ordering or dependencies between tasks (no DAG); if two pieces must be sequential, keep them in ONE task.
 

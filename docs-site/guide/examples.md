@@ -1,6 +1,6 @@
 # 示例
 
-flowx 仓内的 `examples/` 与 `orchestrator/examples/` 提供了几个可读、可跑的活样例。
+flowcast 仓内的 `examples/` 与 `orchestrator/examples/` 提供了几个可读、可跑的活样例。
 
 ## 黄金样例：并行分析 → 质量门 → 收口
 
@@ -40,7 +40,7 @@ async function main() {
 跑它（dry-run 验证骨架）：
 
 ```bash
-FLOWX_DRY_RUN=1 flowx run ./orchestrator/examples/golden-sample.flow.js --goal "src,lib"
+FLOWCAST_DRY_RUN=1 flowcast run ./orchestrator/examples/golden-sample.flow.js --goal "src,lib"
 ```
 
 ## force-dev：FORCE Lab 标准开发工作流
@@ -49,12 +49,12 @@ FLOWX_DRY_RUN=1 flowx run ./orchestrator/examples/golden-sample.flow.js --goal "
 
 ```bash
 # 从 force-lab 仓安装（一次性）
-flowx flows install /path/to/force-lab/flows/force-dev.js
+flowcast flows install /path/to/force-lab/flows/force-dev.js
 
 # 之后在任意编码项目里使用
-flowx run force-dev --feature add-login --repo .
-flowx run force-dev --run-id run-1234567890      # 断点续跑，不需重传参数
-flowx list                                        # 列出所有 run（依赖已安装的 force-dev）
+flowcast run force-dev --feature add-login --repo .
+flowcast run force-dev --run-id run-1234567890      # 断点续跑，不需重传参数
+flowcast list                                        # 列出所有 run（依赖已安装的 force-dev）
 ```
 
 它综合用到了 `Checkpoint`、`runAgentChain`（跨 CLI 回退）、`waitForInput`、`runGates`、git 原语。批量模式下可通过 `--prompt-file` 跳过 HITL 确认。
@@ -65,9 +65,9 @@ flowx list                                        # 列出所有 run（依赖已
 
 ```bash
 # 安装后按名字跑
-flowx flows install ./examples/goal-drive.js
-flowx run goal-drive --goal "让 npm test 全绿" --gate "npm test" --repo .
-flowx run goal-drive --dry-run   # 假执行器，验证骨架
+flowcast flows install ./examples/goal-drive.js
+flowcast run goal-drive --goal "让 npm test 全绿" --gate "npm test" --repo .
+flowcast run goal-drive --dry-run   # 假执行器，验证骨架
 ```
 
 设计要点：`loop / memory / quality-gate / runAgent` 都是 flowx 一等原语，本 flow 只做薄编排。「反复跑到达成、且越跑越聪明」是通用能力。
@@ -78,10 +78,10 @@ flowx run goal-drive --dry-run   # 假执行器，验证骨架
 
 ```bash
 # 单 flow
-flowx orchestrate "审计 src/ 并修复 lint 问题" --repo . --agent claude-sonnet
+flowcast orchestrate "审计 src/ 并修复 lint 问题" --repo . --agent claude-sonnet
 
 # 接单分拆并发
-flowx orchestrate "实现 README 的全部 TODO" --split --concurrency 3
+flowcast orchestrate "实现 README 的全部 TODO" --split --concurrency 3
 ```
 
 详见 [L3 编排](/guide/orchestration)。
@@ -91,7 +91,7 @@ flowx orchestrate "实现 README 的全部 TODO" --split --concurrency 3
 跑过若干 run 后，生成只读 HTML 看板查看父子运行树、僵尸进程、质量门红灯：
 
 ```bash
-flowx dashboard --repo . --open
+flowcast dashboard --repo . --open
 # → .flowx/dashboard.html
 ```
 

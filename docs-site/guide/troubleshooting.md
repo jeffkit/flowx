@@ -1,6 +1,6 @@
 # 排错 / FAQ
 
-flowx 的设计偏好 **fail-fast**：配置/环境不对时立刻报错并给出修法，而不是静默卡死。本页是常见报错对照表。
+flowcast 的设计偏好 **fail-fast**：配置/环境不对时立刻报错并给出修法，而不是静默卡死。本页是常见报错对照表。
 
 ## 常见报错 → 含义 → 怎么修
 
@@ -70,8 +70,8 @@ cd <目标仓> && npm install flowcast
 
 - 一行需求、单目标 → `orchestrate`
 - 大目标可拆成多个独立子任务 → `orchestrate --split`
-- 流程固定、要精细控制（条件分支/重试/特定 HITL 点）→ 手写 flow，`flowx run ./my-flow.js`
-- 标准开发流（建分支→写码→审查→PR）→ `flowx run force-dev`（需先 `flowx flows install`）
+- 流程固定、要精细控制（条件分支/重试/特定 HITL 点）→ 手写 flow，`flowcast run ./my-flow.js`
+- 标准开发流（建分支→写码→审查→PR）→ `flowcast run force-dev`（需先 `flowcast flows install`）
 
 详见 [L3 编排](/guide/orchestration) 与 [给 AI 使用](/guide/for-ai) 的决策树。
 

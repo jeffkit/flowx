@@ -9,7 +9,7 @@ import { collectRuns, renderHtml, generateDashboard } from 'flowcast'
 ## CLI
 
 ```bash
-flowx dashboard --repo . [--open]
+flowcast dashboard --repo . [--open]
 # → .flowx/dashboard.html
 ```
 

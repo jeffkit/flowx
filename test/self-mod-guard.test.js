@@ -13,7 +13,7 @@ function git(args, cwd) {
 
 /** 建一个带初始 commit 的临时 git 仓。 */
 function makeRepo() {
-  const repo = mkdtempSync(join(tmpdir(), 'flowx-guard-'))
+  const repo = mkdtempSync(join(tmpdir(), 'flowcast-guard-'))
   git(['init', '-q'], repo)
   git(['config', 'user.email', 't@t'], repo)
   git(['config', 'user.name', 't'], repo)
@@ -28,7 +28,7 @@ function cleanup(repo) {
 }
 
 test('captureBaseline 无 commit 时抛错', () => {
-  const repo = mkdtempSync(join(tmpdir(), 'flowx-guard-empty-'))
+  const repo = mkdtempSync(join(tmpdir(), 'flowcast-guard-empty-'))
   git(['init', '-q'], repo)
   assert.throws(() => captureBaseline(repo), /无 baseline commit/)
   cleanup(repo)

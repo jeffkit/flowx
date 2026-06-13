@@ -1,6 +1,6 @@
 # 断点续跑（Checkpoint）
 
-`Checkpoint` 是 flowx 最核心的原语：把一条 flow 拆成若干**可记录的步骤**，中断后用同一个 `run-id` 续跑，已完成的步骤**零重复执行**。
+`Checkpoint` 是 flowcast 最核心的原语：把一条 flow 拆成若干**可记录的步骤**，中断后用同一个 `run-id` 续跑，已完成的步骤**零重复执行**。
 
 ## 工作原理
 

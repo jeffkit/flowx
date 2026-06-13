@@ -2,7 +2,7 @@
 /**
  * <FLOW_TITLE>
  *
- * 由 flowx L3 codegen harness 生成（或手写）。遵循 orchestrator/FLOW_API.md 契约：
+ * 由 flowcast L3 codegen harness 生成（或手写）。遵循 orchestrator/FLOW_API.md 契约：
  * 只 import flowcast，只用契约列出的原语，编排逻辑全部写在 main() 的占位处。
  */
 import { parseArgs } from 'util'
@@ -28,7 +28,7 @@ const { values: opts } = parseArgs({ options: {
   'project-name': { type: 'string', default: 'flowx' },
 } })
 
-if (opts['dry-run']) process.env.FLOWX_DRY_RUN = '1'
+if (opts['dry-run']) process.env.FLOWCAST_DRY_RUN = '1'
 
 const runId = opts['run-id'] ?? `flow-${Date.now()}`
 const repo = opts.repo

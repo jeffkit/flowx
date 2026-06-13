@@ -1,6 +1,6 @@
 # 从零到第一次跑通
 
-本页是一条**端到端、可复制**的路径：从一台没装过 flowx 的机器，到第一次成功跑通 `flowx orchestrate`。照着做即可，每步都给了"怎么确认成功"。
+本页是一条**端到端、可复制**的路径：从一台没装过 flowx 的机器，到第一次成功跑通 `flowcast orchestrate`。照着做即可，每步都给了"怎么确认成功"。
 
 ## 前置条件
 
@@ -79,7 +79,7 @@ export DEEPSEEK_API_KEY=sk-xxxx
 先用 dry-run 跑通骨架，确认环境/配置没问题，再上真的。dry-run 下执行器与质量门被 fake，**不烧 API、不跑构建**。
 
 ```bash
-FLOWX_DRY_RUN=1 npx flowx orchestrate "在 README 末尾加一行 hello" --repo . --agent cursor-default
+FLOWCAST_DRY_RUN=1 flowcast orchestrate "在 README 末尾加一行 hello" --repo . --agent cursor-default
 ```
 
 **确认成功**：看到生成 → 校验 → 执行（fake）走完，结尾 `✓ orchestrate 完成 exit=0`，并在 `.flowx/runs/<run-id>/` 下有 `flow.mjs`、`state.json`、`run.log.jsonl`。
@@ -91,10 +91,10 @@ dry-run 只验证**结构 / 骨架 / 配置**（能不能生成合法 flow、配
 
 ## 第 4 步：真实跑一次
 
-去掉 `FLOWX_DRY_RUN`，用真实 agent 端到端执行：
+去掉 `FLOWCAST_DRY_RUN`，用真实 agent 端到端执行：
 
 ```bash
-npx flowx orchestrate "在 README 末尾加一行 hello" --repo . --agent cursor-default
+flowcast orchestrate "在 README 末尾加一行 hello" --repo . --agent cursor-default
 ```
 
 **确认成功**：`exit=0`，目标仓里 README 真的被改了；`.flowx/runs/<run-id>/report.md` 有可读摘要。
@@ -103,10 +103,10 @@ npx flowx orchestrate "在 README 末尾加一行 hello" --repo . --agent cursor
 
 ```bash
 # 中断后用同一个 run-id 续跑，已完成步骤会 [skip]
-npx flowx orchestrate "..." --run-id <上次的 run-id>
+flowcast orchestrate "..." --run-id <上次的 run-id>
 
 # 生成只读可观测看板
-npx flowx dashboard --repo . --open
+flowcast dashboard --repo . --open
 ```
 
 ## 卡住了？

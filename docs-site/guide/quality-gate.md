@@ -53,7 +53,7 @@ await runGates([
 
 ### dry-run 友好
 
-`isDryRun()` 为真时，质量门**不 spawn、直接判过**（结构校验用，不烧构建时间）。所以你可以 `FLOWX_DRY_RUN=1` 跑通整个 flow 骨架。
+`isDryRun()` 为真时，质量门**不 spawn、直接判过**（结构校验用，不烧构建时间）。所以你可以 `FLOWCAST_DRY_RUN=1` 跑通整个 flow 骨架。
 
 ### 观测
 

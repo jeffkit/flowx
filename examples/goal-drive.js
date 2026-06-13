@@ -15,7 +15,7 @@
  *     3. 红灯把失败输出沉淀进跨-run memory，下一轮 fresh context 仍能读到
  *   门全绿即 isDone=true → completed；达不到目标则 maxTurns 触顶 → budget_exhausted。
  *
- * 设计：loop / memory / quality-gate / runAgent 都是 flowx 一等原语，本 flow 只做薄编排。
+ * 设计：loop / memory / quality-gate / runAgent 都是 flowcast 一等原语，本 flow 只做薄编排。
  *      「反复跑到达成、且越跑越聪明」是通用能力 → 放原语；具体目标/验证命令是业务 → 留脚本。
  */
 
@@ -38,7 +38,7 @@ const { values: opts } = parseArgs({
   },
 })
 
-if (opts['dry-run']) process.env.FLOWX_DRY_RUN = '1'
+if (opts['dry-run']) process.env.FLOWCAST_DRY_RUN = '1'
 
 const repo = opts.repo
 const runId = opts['run-id'] ?? `goal-${Date.now()}`

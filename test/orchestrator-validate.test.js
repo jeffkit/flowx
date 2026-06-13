@@ -39,7 +39,7 @@ test('validateFlow: 黄金样例三关全过', async () => {
 })
 
 test('validateFlow: 语法错误被拦（syntax 关）', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'flowx-bad-'))
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-bad-'))
   try {
     const f = join(dir, 'syntax-err.js')
     writeFileSync(f, `import { x } from 'flowcast'\nfunction main( {\n`)
@@ -52,7 +52,7 @@ test('validateFlow: 语法错误被拦（syntax 关）', async () => {
 })
 
 test('validateFlow: 违规 import 被拦（imports 关）', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'flowx-bad-'))
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-bad-'))
   try {
     const f = join(dir, 'bad-import.js')
     writeFileSync(f, `import { Checkpoint } from 'flowcast'\nimport { writeFileSync } from 'fs'\nawait Promise.resolve()\n`)

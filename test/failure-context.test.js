@@ -7,7 +7,7 @@ import { join } from 'path'
 import { writeFailureContext, readAndConsumeFailureContext } from '../failure-context.js'
 
 test('写入后可读取，内容含 reason / tailLog / provider', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'flowx-fc-'))
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-fc-'))
   const p = writeFailureContext(dir, 'attempt', {
     reason: 'BudgetExceeded',
     tailLog: 'last log line',
@@ -25,7 +25,7 @@ test('写入后可读取，内容含 reason / tailLog / provider', () => {
 })
 
 test('读取即消费：第二次读返回 null', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'flowx-fc2-'))
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-fc2-'))
   writeFailureContext(dir, 'attempt', { reason: 'x' })
   const first = readAndConsumeFailureContext(dir, 'attempt')
   assert.notEqual(first, null)
@@ -35,7 +35,7 @@ test('读取即消费：第二次读返回 null', () => {
 })
 
 test('不存在时返回 null', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'flowx-fc3-'))
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-fc3-'))
   assert.equal(readAndConsumeFailureContext(dir, 'nope'), null)
   rmSync(dir, { recursive: true, force: true })
 })

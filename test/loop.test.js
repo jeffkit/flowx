@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { loop } from '../loop.js'
 import { recall } from '../memory.js'
 
-function tempDir() { return mkdtempSync(join(tmpdir(), 'flowx-loop-')) }
+function tempDir() { return mkdtempSync(join(tmpdir(), 'flowcast-loop-')) }
 
 test('loop：isDone 在第 N 轮返回 true → completed，轮数正确', async () => {
   const dir = tempDir()
@@ -76,8 +76,8 @@ test('loop：质量门红灯（rollback）→ 抛错', async () => {
 
 test('loop：dry-run 下质量门自动判过，骨架可跑通', async () => {
   const dir = tempDir()
-  const prev = process.env.FLOWX_DRY_RUN
-  process.env.FLOWX_DRY_RUN = '1'
+  const prev = process.env.FLOWCAST_DRY_RUN
+  process.env.FLOWCAST_DRY_RUN = '1'
   try {
     const res = await loop(
       async () => 'x',
@@ -90,7 +90,7 @@ test('loop：dry-run 下质量门自动判过，骨架可跑通', async () => {
     )
     assert.equal(res.status, 'completed')
   } finally {
-    if (prev === undefined) delete process.env.FLOWX_DRY_RUN; else process.env.FLOWX_DRY_RUN = prev
+    if (prev === undefined) delete process.env.FLOWCAST_DRY_RUN; else process.env.FLOWCAST_DRY_RUN = prev
     rmSync(dir, { recursive: true, force: true })
   }
 })

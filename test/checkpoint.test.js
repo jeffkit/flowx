@@ -6,7 +6,7 @@ import { join } from 'node:path'
 
 import { Checkpoint } from '../checkpoint.js'
 
-function tempDir() { return mkdtempSync(join(tmpdir(), 'flowx-cp-')) }
+function tempDir() { return mkdtempSync(join(tmpdir(), 'flowcast-cp-')) }
 
 test('Checkpoint.record/has: 同步记录已算好的结果，可被 has 命中', () => {
   const dir = tempDir()

@@ -43,7 +43,7 @@ export async function validateFlow(file, { timeout = 60_000, repo, cwd } = {}) {
 
   // ① 语法（生成的 flow 恒为 ESM；node --check 对无 package.json 的 .js 按 CJS 判定过松，
   //    故复制成 .mjs 再 --check，确保按 ESM 语法校验）
-  const checkDir = mkdtempSync(join(tmpdir(), 'flowx-check-'))
+  const checkDir = mkdtempSync(join(tmpdir(), 'flowcast-check-'))
   const checkFile = join(checkDir, 'flow.mjs')
   try {
     copyFileSync(file, checkFile)
@@ -60,19 +60,19 @@ export async function validateFlow(file, { timeout = 60_000, repo, cwd } = {}) {
   checks.push('imports')
 
   // ③ 假执行器 dry-run（一次性 git repo）
-  const tmp = repo ?? mkdtempSync(join(tmpdir(), 'flowx-dryrun-'))
+  const tmp = repo ?? mkdtempSync(join(tmpdir(), 'flowcast-dryrun-'))
   const cleanup = () => { if (!repo) rmSync(tmp, { recursive: true, force: true }) }
   try {
     if (!repo) {
       execFileSync('git', ['init', '-q'], { cwd: tmp })
-      execFileSync('git', ['config', 'user.email', 'dryrun@flowx'], { cwd: tmp })
-      execFileSync('git', ['config', 'user.name', 'flowx-dryrun'], { cwd: tmp })
+      execFileSync('git', ['config', 'user.email', 'dryrun@flowcast'], { cwd: tmp })
+      execFileSync('git', ['config', 'user.name', 'flowcast-dryrun'], { cwd: tmp })
     }
     execFileSync('node', [file, '--dry-run', '--repo', tmp, '--goal', 'dry-run-demo', '--run-id', `dryrun-${Date.now()}`], {
       stdio: 'pipe',
       timeout,
       cwd,
-      env: { ...process.env, FLOWX_DRY_RUN: '1' },
+      env: { ...process.env, FLOWCAST_DRY_RUN: '1' },
     })
     checks.push('dry-run')
   } catch (e) {

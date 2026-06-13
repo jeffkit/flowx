@@ -13,7 +13,7 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
 const cleanRun = (id) => rmSync(join(REPO, '.flowx', 'runs', id), { recursive: true, force: true })
 
 function tempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'flowx-fo-'))
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-fo-'))
   execFileSync('git', ['init', '-q'], { cwd: dir })
   execFileSync('git', ['config', 'user.email', 't@t'], { cwd: dir })
   execFileSync('git', ['config', 'user.name', 't'], { cwd: dir })

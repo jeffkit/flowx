@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * flowx CLI 入口
+ * flowcast CLI 入口（命令别名：flowcast / flowc / fc / flowx）
  *
  * 用法：
- *   flowx run <name-or-file> [args...]   # 按名字查 ~/.flowx/flows/ 或直接跑文件
- *   flowx flows list                      # 列出已安装的用户级 flow
- *   flowx flows install <src>            # 安装 flow 到 ~/.flowx/flows/
- *   flowx flows remove <name>            # 移除用户级 flow
- *   flowx list                            # 列出当前项目的所有 run（走 ~/.flowx/flows/force-dev）
- *   flowx orchestrate <goal>             # L3 orchestrator
- *   flowx dashboard                      # 可观测看板
+ *   flowcast run <name-or-file> [args...]  # 按名字查 ~/.flowx/flows/ 或直接跑文件
+ *   flowcast flows list                    # 列出已安装的用户级 flow
+ *   flowcast flows install <src>           # 安装 flow 到 ~/.flowx/flows/
+ *   flowcast flows remove <name>           # 移除用户级 flow
+ *   flowcast list                          # 列出当前项目的所有 run
+ *   flowcast orchestrate <goal>            # L3 orchestrator
+ *   flowcast dashboard                     # 可观测看板
  *
  * flow 文件可直接 `import { Checkpoint, fanOut } from 'flowcast'`，
  * 全局安装后无需在业务项目里建 package.json / node_modules。
@@ -50,35 +50,34 @@ function spawnFlow(flowAbs, args) {
   const result = spawnSync(
     'node',
     ['--import', resolverHook, flowAbs, ...args],
-    { stdio: 'inherit', cwd: process.cwd(), env: { ...process.env, FLOWX_PKG_INDEX: pkgIndex } }
+    { stdio: 'inherit', cwd: process.cwd(), env: { ...process.env, FLOWCAST_PKG_INDEX: pkgIndex } }
   )
   return result.status ?? 1
 }
 
 if (!command || command === '--help' || command === '-h') {
   console.log(`
-flowx — lightweight workflow runner
+flowcast — lightweight workflow runner  (aliases: flowcast / flowc / fc / flowx)
 
 Commands:
-  run <name|file>    Run a named user flow or a local flow file
-  flows list         List installed user-level flows (~/.flowx/flows/)
+  run <name|file>      Run a named user flow or a local flow file
+  flows list           List installed user-level flows (~/.flowx/flows/)
   flows install <src>  Install a flow file to ~/.flowx/flows/
   flows remove <name>  Remove a user-level flow
-  orchestrate <goal> L3: generate a flow from a goal, validate it, then run it
-  dashboard          Generate a static observability dashboard (HTML) for all runs
-  list               List all workflow runs in current project (needs force-dev flow installed)
+  orchestrate <goal>   L3: generate a flow from a goal, validate it, then run it
+  dashboard            Generate a static observability dashboard (HTML) for all runs
+  list                 List all workflow runs in current project (needs force-dev flow installed)
 
 Examples:
-  flowx flows install ./flows/force-dev.js
-  flowx run force-dev --feature add-login --repo .
-  flowx run force-dev --run-id run-1234567890      # resume a paused run
-  flowx run ./my-custom-flow.js --repo .
-  flowx orchestrate "审计 src/ 并修复 lint 问题" --repo . --agent claude-sonnet
-  flowx orchestrate "..." --run-id orch-123    # resume: reuse generated flow.mjs
-  flowx orchestrate "..." --dry-run            # generate for real, execute with fakes
-  flowx orchestrate "大目标" --split --concurrency 3   # decompose → flow per task → fan out
-  flowx dashboard --repo . --open              # scan runs + worktrees → .flowx/dashboard.html
-  flowx list
+  flowcast flows install /path/to/force-lab/flows/force-dev.js
+  flowcast run force-dev --feature add-login --repo .
+  flowcast run force-dev --run-id run-1234567890      # resume a paused run
+  flowcast run ./my-custom-flow.js --repo .
+  flowcast orchestrate "审计 src/ 并修复 lint 问题" --repo . --agent claude-sonnet
+  flowcast orchestrate "..." --run-id orch-123
+  flowcast orchestrate "大目标" --split --concurrency 3
+  flowcast dashboard --repo . --open
+  flowcast list
 `)
   process.exit(0)
 }

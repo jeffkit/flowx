@@ -6,7 +6,7 @@ import { join } from 'node:path'
 
 import { recordLearning, recall, buildMemorySection, promoteFailureContext } from '../memory.js'
 
-function tempDir() { return mkdtempSync(join(tmpdir(), 'flowx-mem-')) }
+function tempDir() { return mkdtempSync(join(tmpdir(), 'flowcast-mem-')) }
 
 test('recordLearning 落盘后可 recall 命中（按 query 关键词）', () => {
   const baseDir = tempDir()

@@ -8,6 +8,9 @@
     ".": "./index.js"
   },
   "bin": {
+    "flowcast": "./bin/flowx.js",
+    "flowc": "./bin/flowx.js",
+    "fc": "./bin/flowx.js",
     "flowx": "./bin/flowx.js"
   },
   "scripts": {

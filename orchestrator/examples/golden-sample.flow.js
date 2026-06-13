@@ -25,7 +25,7 @@ const { values: opts } = parseArgs({ options: {
   'project-name': { type: 'string', default: 'flowx' },
 } })
 
-if (opts['dry-run']) process.env.FLOWX_DRY_RUN = '1'
+if (opts['dry-run']) process.env.FLOWCAST_DRY_RUN = '1'
 
 const runId = opts['run-id'] ?? `analyze-${Date.now()}`
 const repo = opts.repo

@@ -1,8 +1,8 @@
 // dashboard/render.js — 把采集器的数据模型渲染成一个 self-contained HTML 文件。
 //
 // 设计：纯字符串拼接，零依赖、无 CDN、离线可看。数据通过 <script> 内嵌 JSON，
-// 交互（筛选/搜索/选中/钻取）全用原生 JS 在浏览器里做——契合 flowx「零运行时依赖」。
-// 看板是只读快照：重跑 `flowx dashboard` 才刷新（不轮询、不起服务）。
+// 交互（筛选/搜索/选中/钻取）全用原生 JS 在浏览器里做——契合 flowcast「零运行时依赖」。
+// 看板是只读快照：重跑 `flowcast dashboard` 才刷新（不轮询、不起服务）。
 
 /** 把数据安全嵌进 <script>：闭合标签序列要转义，否则会提前结束 script。 */
 function embedJson(data) {
@@ -25,12 +25,12 @@ export function renderHtml(model) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>flowx dashboard · ${escapeAttr(model.repo ?? '')}</title>
+<title>flowcast dashboard · ${escapeAttr(model.repo ?? '')}</title>
 <style>${CSS}</style>
 </head>
 <body>
 <header>
-  <div class="brand">flowx<span>dashboard</span></div>
+  <div class="brand">flowcast<span>dashboard</span></div>
   <div class="repo" id="repo"></div>
   <div class="gen" id="gen"></div>
 </header>

@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 // 项目站点部署在 https://jeffkit.github.io/flowx/，base 必须是 /flowx/
 export default defineConfig({
   lang: 'zh-CN',
-  title: 'flowx',
+  title: 'flowcast',
   description: '轻量 workflow 编排框架：断点续跑 · HITL · 多 CLI/agent 调度 · 自改沙箱 · 质量门 · L3 codegen 编排',
   base: '/flowx/',
   lastUpdated: true,

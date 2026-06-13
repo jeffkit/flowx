@@ -58,5 +58,5 @@ L3 的 API 从 `flowcast/orchestrator`（`orchestrator/index.js`）导出：
 用法见 [L3 编排指南](/guide/orchestration)。
 
 ::: tip dry-run
-几乎所有原语都尊重 `isDryRun()`：`runAgent` / `resolveAgent` 返回假执行器，`runGate` 直接判过，`runFlow` / `fanOut` 不真正隔离。`FLOWX_DRY_RUN=1` 即可跑通骨架。
+几乎所有原语都尊重 `isDryRun()`：`runAgent` / `resolveAgent` 返回假执行器，`runGate` 直接判过，`runFlow` / `fanOut` 不真正隔离。`FLOWCAST_DRY_RUN=1` 即可跑通骨架。
 :::

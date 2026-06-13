@@ -9,7 +9,7 @@ import { renderHtml } from '../dashboard/render.js'
 import { archiveChildRun } from '../subflow.js'
 
 // ── 测试夹具：在临时仓里造出 run 目录 ──────────────────────────────
-function tempRepo() { return mkdtempSync(join(tmpdir(), 'flowx-dash-')) }
+function tempRepo() { return mkdtempSync(join(tmpdir(), 'flowcast-dash-')) }
 
 function writeRun(runsRoot, runId, state, logLines = []) {
   const dir = join(runsRoot, runId)

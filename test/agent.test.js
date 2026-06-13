@@ -28,7 +28,7 @@ esac
 `
 
 function makeFakeBin() {
-  const dir = mkdtempSync(join(tmpdir(), 'flowx-recbin-'))
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-recbin-'))
   const bin = join(dir, 'recursive')
   writeFileSync(bin, FAKE_BIN)
   chmodSync(bin, 0o755)
@@ -257,9 +257,9 @@ test('runAgentChain：run 级冷却 → 刚限额的 agent 下次降级到链尾
   assert.deepEqual(calls2, ['agy'])
 })
 
-test('runAgentChain：FLOWX_AGENT_COOLDOWN_BASE_MS env 覆盖冷却 base', async () => {
-  const prev = process.env.FLOWX_AGENT_COOLDOWN_BASE_MS
-  process.env.FLOWX_AGENT_COOLDOWN_BASE_MS = '100000'   // 覆盖默认 30s → 100s
+test('runAgentChain：FLOWCAST_AGENT_COOLDOWN_BASE_MS env 覆盖冷却 base', async () => {
+  const prev = process.env.FLOWCAST_AGENT_COOLDOWN_BASE_MS
+  process.env.FLOWCAST_AGENT_COOLDOWN_BASE_MS = '100000'   // 覆盖默认 30s → 100s
   try {
     const cooldown = new Map()
     const chain = [{ cli: 'claude', provider: { name: 'minimax' } }, { cli: 'agy' }]
@@ -276,8 +276,8 @@ test('runAgentChain：FLOWX_AGENT_COOLDOWN_BASE_MS env 覆盖冷却 base', async
     // 100s ±10% 抖动 → 应远大于内置默认 30s
     assert.ok(remaining > 60_000, `冷却应被 env 放大到 ~100s，实际剩余 ${remaining}ms`)
   } finally {
-    if (prev === undefined) delete process.env.FLOWX_AGENT_COOLDOWN_BASE_MS
-    else process.env.FLOWX_AGENT_COOLDOWN_BASE_MS = prev
+    if (prev === undefined) delete process.env.FLOWCAST_AGENT_COOLDOWN_BASE_MS
+    else process.env.FLOWCAST_AGENT_COOLDOWN_BASE_MS = prev
   }
 })
 

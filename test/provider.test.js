@@ -76,8 +76,8 @@ test('resolveProvider: key 环境变量缺失则 fail-fast', () => {
 // ── loadProviders（多层合并）─────────────────────────────────────
 
 test('loadProviders: 项目级覆盖机器级', async () => {
-  const home = mkdtempSync(join(tmpdir(), 'flowx-home-'))
-  const proj = mkdtempSync(join(tmpdir(), 'flowx-proj-'))
+  const home = mkdtempSync(join(tmpdir(), 'flowcast-home-'))
+  const proj = mkdtempSync(join(tmpdir(), 'flowcast-proj-'))
   try {
     mkdirSync(join(home, '.flowx'), { recursive: true })
     mkdirSync(join(proj, '.flowx'), { recursive: true })
@@ -97,7 +97,7 @@ test('loadProviders: 项目级覆盖机器级', async () => {
 })
 
 test('loadProviders: 无配置返回空 map', async () => {
-  const empty = mkdtempSync(join(tmpdir(), 'flowx-empty-'))
+  const empty = mkdtempSync(join(tmpdir(), 'flowcast-empty-'))
   try {
     const merged = await loadProviders({ dirs: [join(empty, 'nope')] })
     assert.deepEqual(merged, {})

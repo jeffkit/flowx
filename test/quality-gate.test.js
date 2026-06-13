@@ -26,7 +26,7 @@ test('红灯 + onFail=rollback → 抛错且带 gate/output', async () => {
 })
 
 test('红灯 + onFail=autofix → 跑 autofixCmd 后视为通过', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'flowx-gate-'))
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-gate-'))
   const flag = join(dir, 'fixed')
   const r = await runGate({
     name: 'fmt',
@@ -41,7 +41,7 @@ test('红灯 + onFail=autofix → 跑 autofixCmd 后视为通过', async () => {
 })
 
 test('红灯 + resume-fix 成功 → 第二次通过', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'flowx-gate-rf-'))
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-gate-rf-'))
   const flag = join(dir, 'patched')
   // cmd：flag 存在则绿灯，否则红灯
   const cmd = `test -f ${flag}`

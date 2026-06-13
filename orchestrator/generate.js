@@ -20,7 +20,7 @@ export function buildGenPrompt(request, { agentsList = [], priorError } = {}) {
   const contract = readFileSync(FLOW_API_DOC, 'utf8')
   const golden = readFileSync(GOLDEN_SAMPLE, 'utf8')
   const agentsLine = agentsList.length ? agentsList.join(', ') : '(无预置 agent，运行时用 --agent 指定)'
-  let p = `You are a flowx flow generator. Output ONE complete ESM JavaScript flow file.
+  let p = `You are a flowcast flow generator. Output ONE complete ESM JavaScript flow file.
 
 # Contract (MUST follow)
 ${contract}

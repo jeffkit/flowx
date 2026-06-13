@@ -22,7 +22,7 @@ export async function runDashboard(argv) {
     }))
   } catch (e) {
     console.error(`参数错误: ${e.message}`)
-    console.error('用法: flowx dashboard [--repo .] [--out path.html] [--open] [--stale-min 10]')
+    console.error('用法: flowcast dashboard [--repo .] [--out path.html] [--open] [--stale-min 10]')
     return 1
   }
 
@@ -31,7 +31,7 @@ export async function runDashboard(argv) {
 
   const { out, model } = generateDashboard({ repo, out: opts.out, staleMs })
   const s = model.stats
-  console.log(`\n📊 flowx dashboard 已生成：${out}`)
+  console.log(`\n📊 flowcast dashboard 已生成：${out}`)
   console.log(`   ${s.total} runs · 运行中 ${s.running} · 僵尸 ${s.stale} · 暂停 ${s.paused} · 完成 ${s.completed}`)
   if (s.fallback || s.gateFail) console.log(`   信号：fallback ${s.fallback} · 质量门红灯 ${s.gateFail}`)
 

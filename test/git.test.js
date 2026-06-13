@@ -9,7 +9,7 @@ import { existsSync } from 'node:fs'
 import { gitCommitAll, gitStatus, gitDiff, gitWorktreeAdd, gitWorktreeRemove, gitHead, gitCurrentBranch, gitCommitsAhead, gitCreateBranch } from '../git.js'
 
 function tempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'flowx-git-'))
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-git-'))
   execFileSync('git', ['init', '-q'], { cwd: dir })
   execFileSync('git', ['config', 'user.email', 't@t'], { cwd: dir })
   execFileSync('git', ['config', 'user.name', 't'], { cwd: dir })
@@ -43,7 +43,7 @@ test('gitDiff: 反映未暂存改动', () => {
 
 test('gitCommitAll: dry-run 不实际提交', () => {
   const dir = tempRepo()
-  process.env.FLOWX_DRY_RUN = '1'
+  process.env.FLOWCAST_DRY_RUN = '1'
   try {
     writeFileSync(join(dir, 'a.txt'), 'hi')
     const r = gitCommitAll(dir, 'x')
@@ -51,7 +51,7 @@ test('gitCommitAll: dry-run 不实际提交', () => {
     assert.equal(r.committed, false)
     assert.match(gitStatus(dir), /a\.txt/) // 仍未提交
   } finally {
-    delete process.env.FLOWX_DRY_RUN
+    delete process.env.FLOWCAST_DRY_RUN
     rmSync(dir, { recursive: true, force: true })
   }
 })
@@ -79,7 +79,7 @@ test('gitWorktreeAdd/Remove: 新增隔离工作树，复用已存在，移除', 
 
 test('gitWorktreeAdd: dry-run 不实际创建', () => {
   const dir = tempRepo()
-  process.env.FLOWX_DRY_RUN = '1'
+  process.env.FLOWCAST_DRY_RUN = '1'
   try {
     const wt = join(dir, '.worktrees', 'w-dry')
     const r = gitWorktreeAdd(dir, wt)
@@ -87,7 +87,7 @@ test('gitWorktreeAdd: dry-run 不实际创建', () => {
     assert.equal(r.created, false)
     assert.ok(!existsSync(wt))
   } finally {
-    delete process.env.FLOWX_DRY_RUN
+    delete process.env.FLOWCAST_DRY_RUN
     rmSync(dir, { recursive: true, force: true })
   }
 })

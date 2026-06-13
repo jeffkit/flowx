@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * flowx 最小可跑 flow 模板。
+ * flowcast 最小可跑 flow 模板。
  *
  * - dry-run（npm run dry）：零配置即可跑通骨架（执行器被 fake，不烧 API）。
  * - 真跑（npm run start）：需要 ~/.flowx/agents.json 里有 --agent 指定的 profile。
@@ -18,14 +18,14 @@ import {
 const { values: opts } = parseArgs({ options: {
   'run-id':       { type: 'string' },
   repo:           { type: 'string', default: process.cwd() },
-  goal:           { type: 'string', default: '在 README 末尾追加一行 "hello from flowx"' },
+  goal:           { type: 'string', default: '在 README 末尾追加一行 "hello from flowcast"' },
   agent:          { type: 'string', default: 'cursor-default' },
   'dry-run':      { type: 'boolean', default: false },
   hitl:           { type: 'string', default: 'terminal' },
-  'project-name': { type: 'string', default: 'flowx-quickstart' },
+  'project-name': { type: 'string', default: 'flowcast-quickstart' },
 } })
 
-if (opts['dry-run']) process.env.FLOWX_DRY_RUN = '1'
+if (opts['dry-run']) process.env.FLOWCAST_DRY_RUN = '1'
 
 const runId = opts['run-id'] ?? `quickstart-${Date.now()}`
 const repo = opts.repo

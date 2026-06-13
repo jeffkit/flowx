@@ -1,6 +1,6 @@
 # 快速上手
 
-本节带你在几分钟内安装 flowx、写出第一个可断点续跑的 flow，并跑通 CLI。
+本节带你在几分钟内安装 flowcast、写出第一个可断点续跑的 flow，并跑通 CLI。
 
 ## 环境要求
 
@@ -9,16 +9,16 @@
 
 ## 安装
 
-flowx 有两种使用方式：
+flowcast 有两种使用方式：
 
 ### 全局安装 CLI（推荐）
 
 ```bash
 npm install -g flowcast
-flowx --help
+flowcast --help
 ```
 
-全局安装后，`flowx` 命令在任何目录都可用。业务项目**无需**自己的 `package.json` 或 `node_modules`。
+全局安装后，`flowcast`（或 `flowc`/`fc`）命令在任何目录都可用。业务项目**无需**自己的 `package.json` 或 `node_modules`。
 
 ### 项目内安装（用于 L3 orchestrate）
 
@@ -36,19 +36,19 @@ flow 是独立的 JS 文件，可从任何来源安装到 `~/.flowx/flows/`：
 
 ```bash
 # 从本地路径安装
-flowx flows install ./path/to/my-flow.js
+flowcast flows install ./path/to/my-flow.js
 
 # 查看已安装的 flow
-flowx flows list
+flowcast flows list
 
 # 移除
-flowx flows remove my-flow
+flowcast flows remove my-flow
 ```
 
 安装后即可按名字运行，无需指定路径：
 
 ```bash
-flowx run my-flow --repo .
+flowcast run my-flow --repo .
 ```
 
 ## 第一个 flow
@@ -66,7 +66,7 @@ const { values: opts } = parseArgs({ options: {
   'dry-run':{ type: 'boolean', default: false },
 } })
 
-if (opts['dry-run']) process.env.FLOWX_DRY_RUN = '1'
+if (opts['dry-run']) process.env.FLOWCAST_DRY_RUN = '1'
 
 const runId = opts['run-id'] ?? `hello-${Date.now()}`
 setWorkdir(opts.repo)
@@ -86,9 +86,9 @@ console.log(String(code))
 跑它（dry-run 不烧 API，先验证骨架）：
 
 ```bash
-FLOWX_DRY_RUN=1 flowx run ./flows/hello.js
+FLOWCAST_DRY_RUN=1 flowcast run ./flows/hello.js
 # 或
-flowx run ./flows/hello.js --dry-run
+flowcast run ./flows/hello.js --dry-run
 ```
 
 你会看到每个 step 被记录到 `.flowx/runs/<run-id>/`：
@@ -105,12 +105,12 @@ flowx run ./flows/hello.js --dry-run
 如果 flow 在中途崩溃或被你 Ctrl-C，**用同一个 `--run-id` 再跑一次**即可从断点继续，已完成的步骤会被跳过：
 
 ```bash
-flowx run ./flows/hello.js --run-id hello-1234567890
+flowcast run ./flows/hello.js --run-id hello-1234567890
 #   [skip] plan
 #   [run]  implement
 ```
 
-这就是 flowx 最核心的保证：**步骤跳过准确率 100%，已完成步骤零重复执行**。详见 [断点续跑](/guide/checkpoint)。
+这就是 flowcast 最核心的保证：**步骤跳过准确率 100%，已完成步骤零重复执行**。详见 [断点续跑](/guide/checkpoint)。
 
 ## 用 CLI 一行需求跑 L3 编排
 
@@ -118,13 +118,13 @@ flowx run ./flows/hello.js --run-id hello-1234567890
 
 ```bash
 # 一行需求 → 生成 flow → 校验（语法 + import 白名单 + dry-run）→ 执行（续跑锁定）
-flowx orchestrate "审计 src/ 并修复 lint 问题" --repo . --agent claude-sonnet
+flowcast orchestrate "审计 src/ 并修复 lint 问题" --repo . --agent claude-sonnet
 
 # 大目标：先分拆成子任务，每个生成一条 flow，fanOut 并发执行
-flowx orchestrate "把 README 的 TODO 全部实现" --split --concurrency 3
+flowcast orchestrate "把 README 的 TODO 全部实现" --split --concurrency 3
 
 # 续跑：复用已生成的 flow.mjs
-flowx orchestrate "..." --run-id orch-123
+flowcast orchestrate "..." --run-id orch-123
 ```
 
 详见 [L3 编排](/guide/orchestration)。
@@ -134,7 +134,7 @@ flowx orchestrate "..." --run-id orch-123
 随时把所有 run 的状态生成一张只读 HTML 看板：
 
 ```bash
-flowx dashboard --repo . --open
+flowcast dashboard --repo . --open
 # → .flowx/dashboard.html（父子运行树 + 僵尸进程推断 + 质量门红灯）
 ```
 
@@ -142,13 +142,13 @@ flowx dashboard --repo . --open
 
 | 命令 | 作用 |
 |------|------|
-| `flowx run <name\|file> [args]` | 按名字运行已安装的 flow，或直接运行 flow 文件 |
-| `flowx flows list` | 列出 `~/.flowx/flows/` 下已安装的 flow |
-| `flowx flows install <file>` | 安装 flow 到 `~/.flowx/flows/` |
-| `flowx flows remove <name>` | 移除已安装的 flow |
-| `flowx orchestrate "<目标>" --repo .` | L3：一行需求 → 生成 → 校验 → 执行 |
-| `flowx orchestrate "<大目标>" --split` | L3 接单分拆：拆子任务 → 各自生成 → fanOut 并发 |
-| `flowx dashboard --repo . [--open]` | 生成只读可观测看板 HTML |
-| `flowx list` | 列出当前项目所有 run（需安装 force-dev flow） |
+| `flowcast run <name\|file> [args]` | 按名字运行已安装的 flow，或直接运行 flow 文件 |
+| `flowcast flows list` | 列出 `~/.flowx/flows/` 下已安装的 flow |
+| `flowcast flows install <file>` | 安装 flow 到 `~/.flowx/flows/` |
+| `flowcast flows remove <name>` | 移除已安装的 flow |
+| `flowcast orchestrate "<目标>" --repo .` | L3：一行需求 → 生成 → 校验 → 执行 |
+| `flowcast orchestrate "<大目标>" --split` | L3 接单分拆：拆子任务 → 各自生成 → fanOut 并发 |
+| `flowcast dashboard --repo . [--open]` | 生成只读可观测看板 HTML |
+| `flowcast list` | 列出当前项目所有 run（需安装 force-dev flow） |
 
 下一步：理解 [三层架构](/guide/architecture)。

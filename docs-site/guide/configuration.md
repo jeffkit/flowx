@@ -1,6 +1,6 @@
 # 配置分层
 
-flowx 的一条铁律：**provider / agent 配置绝不硬编码在代码里**。配置按内容性质三分，密钥永不入仓。
+flowcast 的一条铁律：**provider / agent 配置绝不硬编码在代码里**。配置按内容性质三分，密钥永不入仓。
 
 ## 三分原则
 
@@ -108,7 +108,7 @@ await a.run('实现 X', { cwd: repo, ...a.opts })
 
 ## dry-run
 
-`FLOWX_DRY_RUN=1`（或 flow 的 `--dry-run`）下：
+`FLOWCAST_DRY_RUN=1`（或 flow 的 `--dry-run`）下：
 
 - `runAgent` / `resolveAgent` 返回**假执行器**（不调真 CLI、无需真 key）。
 - 质量门**直接判过**（不 spawn）。

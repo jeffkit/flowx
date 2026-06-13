@@ -25,7 +25,7 @@ import { isDryRun } from './dry-run.js'
  * @param {string[]} [o.args]      额外原样透传的 CLI 参数（如 --feature x --prompt-file p）
  * @param {string} [o.cwd]         子进程工作目录（默认 repo）
  * @param {number} [o.timeout]     超时 ms（到点 SIGKILL）
- * @param {boolean} [o.dryRun]     默认继承当前 isDryRun()；true 则加 --dry-run + FLOWX_DRY_RUN
+ * @param {boolean} [o.dryRun]     默认继承当前 isDryRun()；true 则加 --dry-run + FLOWCAST_DRY_RUN
  * @param {Function} [o.onData]    实时输出回调（仅在不写 logFile 时生效）
  * @param {string} [o.logFile]     给了则把 stdout/stderr 重定向到该文件（并发时避免终端交错）
  * @returns {Promise<{ok:boolean, exitCode:number|null, stdout:string, stderr:string, spawnError?:boolean}>}
@@ -44,7 +44,7 @@ export function runFlow(flowRef, {
     argv.push(...args)
 
     const env = { ...process.env }
-    if (dryRun) env.FLOWX_DRY_RUN = '1'
+    if (dryRun) env.FLOWCAST_DRY_RUN = '1'
 
     let fd
     let stdio

@@ -53,7 +53,7 @@ export function gitCreateBranch(repo = process.cwd(), name) {
  * 暂存全部并提交；无改动则跳过。dry-run 下不实际提交。
  * @returns {{committed:boolean, sha?:string, dryRun?:boolean, reason?:string}}
  */
-export function gitCommitAll(repo = process.cwd(), message = 'flowx: automated commit') {
+export function gitCommitAll(repo = process.cwd(), message = 'flowcast: automated commit') {
   if (isDryRun()) return { committed: false, dryRun: true }
   git(['add', '-A'], repo)
   if (!git(['status', '--porcelain'], repo)) return { committed: false, reason: 'nothing to commit' }

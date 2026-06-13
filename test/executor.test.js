@@ -108,8 +108,8 @@ test('resolveAgent: 缺 executor 字段报错', () => {
 // ── loadAgents（多层合并）────────────────────────────────────────
 
 test('loadAgents: 项目级覆盖机器级', async () => {
-  const home = mkdtempSync(join(tmpdir(), 'flowx-ah-'))
-  const proj = mkdtempSync(join(tmpdir(), 'flowx-ap-'))
+  const home = mkdtempSync(join(tmpdir(), 'flowcast-ah-'))
+  const proj = mkdtempSync(join(tmpdir(), 'flowcast-ap-'))
   try {
     mkdirSync(join(home, '.flowx'), { recursive: true })
     mkdirSync(join(proj, '.flowx'), { recursive: true })

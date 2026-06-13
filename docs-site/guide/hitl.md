@@ -71,7 +71,7 @@ setHitlBackend('wecom', {
 按 [FLOW_API](/api/) 约定，生成的 flow 接受 `--hitl` 参数（`terminal` 默认 / `wecom`）和 `--project-name`，骨架会自动调用 `setHitlBackend`：
 
 ```bash
-flowx run ./flows/my-flow.js --hitl wecom --project-name flowx
+flowcast run ./flows/my-flow.js --hitl wecom --project-name flowx
 ```
 
 ## 与 Checkpoint 配合

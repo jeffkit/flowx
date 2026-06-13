@@ -69,7 +69,7 @@ await runAgentChain('实现 X', [
 ])
 ```
 
-可选传入共享 `cooldown`（`Map`）实现 **run 级自适应指数退避**：刚因限额挂掉的 agent 降级到链尾（按剩余冷却升序排），成功调用清除冷却。base/cap 可经 env 覆盖（`FLOWX_AGENT_COOLDOWN_BASE_MS` / `_MAX_MS`）。
+可选传入共享 `cooldown`（`Map`）实现 **run 级自适应指数退避**：刚因限额挂掉的 agent 降级到链尾（按剩余冷却升序排），成功调用清除冷却。base/cap 可经 env 覆盖（`FLOWCAST_AGENT_COOLDOWN_BASE_MS` / `_MAX_MS`）。
 
 与 claude adapter 内部的 provider 回退**正交**：这里能跨不同 CLI 回退。
 

@@ -72,7 +72,7 @@ test('checkFlowxResolvable: 本包仓自引用可解析', () => {
 })
 
 test('checkFlowxResolvable: 无依赖的临时仓 → 友好报错', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'flowx-noresolve-'))
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-noresolve-'))
   try {
     const r = checkFlowxResolvable(dir)
     assert.equal(r.ok, false)
@@ -82,7 +82,7 @@ test('checkFlowxResolvable: 无依赖的临时仓 → 友好报错', () => {
 })
 
 test('orchestrate: 目标仓不可解析本包 → stage=precheck，不生成不执行', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'flowx-precheck-'))
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-precheck-'))
   let genCalled = false
   try {
     const r = await orchestrate('x', {

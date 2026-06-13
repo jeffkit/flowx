@@ -6,7 +6,7 @@
 
 ## 为什么会有 flowx
 
-flowx 的演进起点，是对三个项目的共性观察：
+flowcast 的演进起点，是对三个项目的共性观察：
 
 | 项目 | 是什么 | 核心机制 |
 |------|--------|----------|
@@ -29,7 +29,7 @@ flowx 的演进起点，是对三个项目的共性观察：
 
 ### 原语优先
 
-flowx 的所有能力都是**可独立测试、可自由组合的一等公民原语**：`Checkpoint`、`runAgent`、`runGate`、`withSelfModGuard`、`fanOut`…… 一条 flow 只是这些原语的**薄编排**。你不需要学一套 DSL，写 flow 就是写普通 JS。
+flowcast 的所有能力都是**可独立测试、可自由组合的一等公民原语**：`Checkpoint`、`runAgent`、`runGate`、`withSelfModGuard`、`fanOut`…… 一条 flow 只是这些原语的**薄编排**。你不需要学一套 DSL，写 flow 就是写普通 JS。
 
 ### codegen 为唯一主路径，不做 DAG
 
@@ -60,6 +60,6 @@ L3 动态编排**直接生成 flow 代码**（与人手写的 flow 同构），*
 
 ## 不做什么
 
-flowx 是**进程定义/编排层**，不是运行时治理框架。它刻意**不吸收** revengers 那样的运行时能力（SQLite 状态机、daemon、锁、常驻 dashboard 服务）。运行时治理仍归上层系统；flowx 只负责把"一个具体任务怎么跑"定义好、跑好、跑得可续跑。
+flowcast 是**进程定义/编排层**，不是运行时治理框架。它刻意**不吸收** revengers 那样的运行时能力（SQLite 状态机、daemon、锁、常驻 dashboard 服务）。运行时治理仍归上层系统；flowx 只负责把"一个具体任务怎么跑"定义好、跑好、跑得可续跑。
 
 下一步：[快速上手](/guide/getting-started)。

@@ -4,7 +4,7 @@
 // 这是 L3 codegen harness 的命令行入口：把库里的 orchestrate() 接通成可 dogfood 的命令。
 //
 // dry-run 语义：生成阶段仍走「真实 agent」产出 flow 代码（无法凭空伪造合法代码），
-// 但生成的 flow 子进程以 FLOWX_DRY_RUN 运行——执行器/质量门被 fake，不烧 API、不跑构建。
+// 但生成的 flow 子进程以 FLOWCAST_DRY_RUN 运行——执行器/质量门被 fake，不烧 API、不跑构建。
 // 纯结构冒烟（不触碰真实 LLM）见 test 里注入 generate 的用法。
 
 import { parseArgs } from 'util'
