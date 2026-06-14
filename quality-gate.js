@@ -44,14 +44,19 @@ export async function runGate(gate, deps = {}) {
   if (exitCode === 0) { emit({ status: 'pass', attempts: 1 }); return { name, passed: true, attempts: 1, output: stdout } }
 
   if (onFail === 'autofix') {
-    if (autofixCmd) {
-      const fix = await runShell(autofixCmd, cwd, timeout)
-      if (fix.exitCode !== 0) {
-        emit({ status: 'fail', exitCode: fix.exitCode, autofixFailed: true })
-        const err = new Error(`quality gate '${name}': autofixCmd failed (exit ${fix.exitCode})`)
-        err.gate = name; err.output = fix.stdout; err.exitCode = fix.exitCode
-        throw err
-      }
+    if (!autofixCmd) {
+      // onFail='autofix' 但没有 autofixCmd：等价于 rollback——直接抛错，不重跑检查、不误报"autofix 失败"
+      emit({ status: 'fail', exitCode })
+      const err = new Error(`quality gate '${name}' failed (exit ${exitCode}); onFail=autofix but no autofixCmd provided`)
+      err.gate = name; err.output = stdout; err.exitCode = exitCode
+      throw err
+    }
+    const fix = await runShell(autofixCmd, cwd, timeout)
+    if (fix.exitCode !== 0) {
+      emit({ status: 'fail', exitCode: fix.exitCode, autofixFailed: true })
+      const err = new Error(`quality gate '${name}': autofixCmd failed (exit ${fix.exitCode})`)
+      err.gate = name; err.output = fix.stdout; err.exitCode = fix.exitCode
+      throw err
     }
     // autofix 后重跑检查，确认真的修好了
     const re = await runShell(cmd, cwd, timeout)

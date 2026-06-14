@@ -59,7 +59,13 @@ function spawnFlow(flowAbs, args) {
     ['--import', resolverHook, flowAbs, ...args],
     { stdio: 'inherit', cwd: process.cwd(), env: { ...process.env, FLOWCAST_PKG_INDEX: pkgIndex } }
   )
-  return result.status ?? 1
+  // status 为 null 表示被信号终止（OOM kill / Ctrl-C），按 Unix 惯例映射为 128+N。
+  if (result.status != null) return result.status
+  if (result.signal) {
+    const SIGNALS = { SIGINT: 2, SIGTERM: 15, SIGKILL: 9, SIGHUP: 1 }
+    return 128 + (SIGNALS[result.signal] ?? 1)
+  }
+  return 1
 }
 
 if (!command || command === '--help' || command === '-h') {

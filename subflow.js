@@ -9,7 +9,7 @@
 import { spawn } from 'child_process'
 import { mkdirSync, openSync, closeSync, existsSync, cpSync } from 'fs'
 import { dirname, join } from 'path'
-import { gitWorktreeAdd } from './git.js'
+import { gitWorktreeAdd, gitWorktreeRemove } from './git.js'
 import { isDryRun } from './dry-run.js'
 import { flowcastDir } from './dirs.js'
 
@@ -98,11 +98,20 @@ export function runFlow(flowRef, {
 export async function fanOut(tasks, {
   repo = process.cwd(), concurrency = 1, isolate = 'none',
   worktreesDir, timeout, dryRun = isDryRun(), logDir, prepare, onResult, onData,
+  cleanWorktrees = false,
 } = {}) {
   const wtRoot = worktreesDir ?? join(repo, '.worktrees')
   const results = new Array(tasks.length)
 
   const runOne = async (task, idx) => {
+    // task.name は worktree パスとログファイル名に直接使われる。
+    // path.join は .. を解決するため、不正な名前はパス穿越になる。
+    if (!/^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$/.test(task.name)) {
+      throw new Error(
+        `fanOut: task.name '${task.name}' contains unsafe characters. ` +
+        `Only alphanumeric, dots, dashes, and underscores are allowed, and must start/end with alphanumeric.`
+      )
+    }
     let cwd = task.cwd ?? repo
     let worktree
     if (isolate === 'worktree' && !dryRun) {
@@ -119,15 +128,24 @@ export async function fanOut(tasks, {
     }
     if (prepare) await prepare(task, { cwd, worktree })
     const logFile = logDir ? join(logDir, `${task.name}.log`) : undefined
-    const result = await runFlow(task.flow, {
-      repo: cwd, runId: task.runId ?? task.name, goal: task.goal, agent: task.agent,
-      args: task.args ?? [], cwd, timeout, dryRun, logFile,
-      onData: logFile ? undefined : onData,
-    })
-    const record = { task, result, worktree }
-    results[idx] = record
-    await onResult?.(record)
-    return record
+    try {
+      const result = await runFlow(task.flow, {
+        repo: cwd, runId: task.runId ?? task.name, goal: task.goal, agent: task.agent,
+        args: task.args ?? [], cwd, timeout, dryRun, logFile,
+        onData: logFile ? undefined : onData,
+      })
+      const record = { task, result, worktree }
+      results[idx] = record
+      // onResult 先于 worktree 清理：调用方可在此 archiveChildRun（从 worktree 镜像日志回主仓）。
+      await onResult?.(record)
+      return record
+    } finally {
+      // cleanWorktrees=true 时自动清理（避免孤儿堆积）；默认 false 保持旧行为，
+      // 让调用方在 fanOut 返回后仍能访问 worktree 路径（如读取产物、归档）。
+      if (worktree && cleanWorktrees) {
+        try { gitWorktreeRemove(repo, worktree, { force: true }) } catch { /* 忽略清理失败 */ }
+      }
+    }
   }
 
   const limit = Math.max(1, Math.min(concurrency, tasks.length || 1))

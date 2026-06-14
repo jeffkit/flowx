@@ -81,7 +81,15 @@ export async function validateFlow(file, { timeout = 60_000, repo, cwd } = {}) {
       stdio: 'pipe',
       timeout,
       cwd,
-      env: { ...process.env, FLOWCAST_DRY_RUN: '1' },
+      // 最小 env：dry-run 不调真 API，不需要任何密钥。
+      // 不能继承 process.env——生成的 flow 在这里尚未经过完整信任验证，
+      // 若传入真实密钥则验证沙箱形同虚设。
+      env: {
+        PATH: process.env.PATH,
+        HOME: process.env.HOME,
+        ...(process.env.NODE_PATH ? { NODE_PATH: process.env.NODE_PATH } : {}),
+        FLOWCAST_DRY_RUN: '1',
+      },
     })
     checks.push('dry-run')
   } catch (e) {

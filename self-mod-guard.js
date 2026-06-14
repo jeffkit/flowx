@@ -46,6 +46,12 @@ export async function withSelfModGuard(fn, { repo = process.cwd(), requireClean 
     try {
       git(['reset', '--hard', baseline], repo)
       if (clean) git(['clean', '-fd'], repo)
+      // 验证回滚是否干净：gitignore 的文件（如 .env、构建产物）不被 clean -fd 清除，
+      // 若仍存在可能污染下次运行，给出告警供人工介入。
+      const remaining = git(['status', '--porcelain'], repo)
+      if (remaining) {
+        console.warn(`withSelfModGuard: 回滚后仍有未跟踪/被忽略文件，可能影响续跑：\n${remaining}`)
+      }
     } catch (e) {
       console.error(`withSelfModGuard: 回滚失败，工作树可能仍脏：${e.message}`)
     }
