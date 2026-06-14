@@ -88,6 +88,8 @@ export async function validateFlow(file, { timeout = 60_000, repo, cwd } = {}) {
         PATH: process.env.PATH,
         HOME: process.env.HOME,
         ...(process.env.NODE_PATH ? { NODE_PATH: process.env.NODE_PATH } : {}),
+        // TMPDIR 影响 os.tmpdir()——生成的 flow 若调 mkdtempSync 需要可写的 tmp 目录
+        ...(process.env.TMPDIR ? { TMPDIR: process.env.TMPDIR } : {}),
         FLOWCAST_DRY_RUN: '1',
       },
     })

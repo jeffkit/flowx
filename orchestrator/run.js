@@ -70,33 +70,41 @@ export async function orchestrate(request, {
   let attempts = 0
 
   // 续跑锁定：用 O_EXCL 原子创建占位文件，避免并发调用（相同 runId）同时进入生成阶段相互覆盖。
-  // 若 flow.mjs 已存在（上次完整生成）则 tryCreate 会抛 EEXIST → 走续跑分支。
+  // 使用迭代循环而非递归，防止僵尸锁场景下无限堆栈增长（最多重试 3 次）。
   mkdirSync(runDir, { recursive: true })
-  const claimed = tryCreateExclusive(file)
-  if (!claimed) {
-    // 文件已存在：检查是否有实际内容（0-byte = 上次生成失败留下的僵尸锁）
-    const existing = readFileSync(file, 'utf8').trim()
-    if (existing) {
-      reused = true
-    } else {
-      // 僵尸锁：删除并重新生成
+  let zombieRetries = 0
+  const MAX_ZOMBIE_RETRIES = 3
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const claimed = tryCreateExclusive(file)
+    if (!claimed) {
+      const existing = readFileSync(file, 'utf8').trim()
+      if (existing) {
+        reused = true
+        break
+      }
+      // 0-byte 僵尸锁：删除后重试
+      if (++zombieRetries > MAX_ZOMBIE_RETRIES) {
+        throw new Error(`orchestrate: zombie lock 持续存在，已重试 ${MAX_ZOMBIE_RETRIES} 次（runId=${runId}）`)
+      }
       unlinkSync(file)
-      return orchestrate(request, { repo, runId, agent, agents, providers, generate, dryRun, timeout, onData, extraArgs })
+      continue
     }
-  } else {
+    // 已独占锁，生成 flow
     let g
     try {
       g = await generateFlow(request, { repo, runDir, agent, agents, providers, generate })
     } catch (e) {
-      unlinkSync(file)  // 释放锁，下次可重试
+      unlinkSync(file)
       throw e
     }
     attempts = g.attempts
     if (!g.validation.ok) {
-      unlinkSync(file)  // 释放锁
+      unlinkSync(file)
       return { ok: false, stage: 'generate', error: g.validation.error, file, attempts }
     }
     writeFileSync(join(runDir, 'request.txt'), request, 'utf8')
+    break
   }
 
   const res = await runGeneratedFlow(file, { repo, runId, goal: request, agent, dryRun, timeout, cwd: repo, onData, extraArgs })
@@ -133,27 +141,33 @@ export async function orchestrateMulti(goal, {
   // ① 分拆（续跑锁定：O_EXCL 原子创建 tasks.json，防并发双写覆盖）
   const tasksPath = join(runDir, 'tasks.json')
   let tasks
-  const tasksOwned = tryCreateExclusive(tasksPath)
-  if (!tasksOwned) {
-    // 文件已存在：检查是否有实际内容（0-byte = 上次分拆失败留下的僵尸锁）
-    const raw = readFileSync(tasksPath, 'utf8').trim()
-    if (raw) {
-      tasks = JSON.parse(raw)
-    } else {
-      // 僵尸锁：删除并递归重试
+  let zombieRetries = 0
+  const MAX_ZOMBIE_RETRIES = 3
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const tasksOwned = tryCreateExclusive(tasksPath)
+    if (!tasksOwned) {
+      const raw = readFileSync(tasksPath, 'utf8').trim()
+      if (raw) {
+        tasks = JSON.parse(raw)
+        break
+      }
+      if (++zombieRetries > MAX_ZOMBIE_RETRIES) {
+        throw new Error(`orchestrateMulti: zombie lock 持续存在，已重试 ${MAX_ZOMBIE_RETRIES} 次（runId=${runId}）`)
+      }
       unlinkSync(tasksPath)
-      return orchestrateMulti(goal, { repo, runId, agent, agents, providers, generate, decomposeGen, concurrency, isolate, dryRun, timeout, onData })
+      continue
     }
-  } else {
     let d
     try {
       d = await decompose(goal, { repo, agent, agents, providers, generate: decomposeGen })
     } catch (e) {
-      unlinkSync(tasksPath)  // 释放锁，下次可重试
+      unlinkSync(tasksPath)
       return { ok: false, stage: 'decompose', runId, error: e.message }
     }
     tasks = d.tasks
     writeFileSync(tasksPath, JSON.stringify(tasks, null, 2), 'utf8')
+    break
   }
 
   // ② 每个子任务生成一条 flow（顺序生成+校验；续跑锁定：sub/<name>/flow.mjs 已存在则复用）

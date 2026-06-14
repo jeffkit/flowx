@@ -73,6 +73,17 @@ test('resolveProvider: key 环境变量缺失则 fail-fast', () => {
   assert.throws(() => resolveProvider('deepseek', PROVIDERS, {}), /DS_KEY 未设置/)
 })
 
+test('interpolateEnv: 未定义变量错误含原始模板片段', () => {
+  assert.throws(
+    () => interpolateEnv('base=${API_BASE}/v1', {}),
+    (err) => {
+      assert.match(err.message, /API_BASE 未设置/)
+      assert.match(err.message, /base=/, '错误应包含原始模板前缀')
+      return true
+    },
+  )
+})
+
 // ── loadProviders（多层合并）─────────────────────────────────────
 
 test('loadProviders: 项目级覆盖机器级', async () => {

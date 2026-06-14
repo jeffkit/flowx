@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -150,4 +150,17 @@ test('gitCreateBranch: 从 detached HEAD 确定性建分支，再次调用切换
 
 test('gitCreateBranch: 缺 name 抛错', () => {
   assert.throws(() => gitCreateBranch('/tmp'), /需要 name/)
+})
+
+test('gitWorktreeAdd: 孤儿目录（存在但未注册）→ 抛明确错误', () => {
+  const repo = tempRepo()
+  const wt = join(repo, '.worktrees', 'orphan')
+  try {
+    // 手动创建目录，不通过 git worktree add——模拟孤儿目录
+    mkdirSync(wt, { recursive: true })
+    assert.throws(
+      () => gitWorktreeAdd(repo, wt),
+      /孤儿目录/,
+    )
+  } finally { rmSync(repo, { recursive: true, force: true }) }
 })

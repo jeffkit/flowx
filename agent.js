@@ -627,9 +627,13 @@ function makeWecomBackend(config = {}) {
   // mcp2cli 真实实现：调用 wecom-hil MCP 工具。
   const mcp2cli = config.mcp2cli ?? 'mcp2cli'
   const server = config.server ?? '@wecom-hil'
+  const waitTimeoutMs = config.waitTimeoutMs ?? 86_400_000  // 默认 24h，可通过 config 覆盖
   const callTool = async (tool, message, { wait }) => {
     const payload = JSON.stringify({ message, project_name: projectName, ...(chatId ? { chat_id: chatId } : {}) })
-    const { stdout, exitCode } = await spawnCapture(mcp2cli, [server, tool, '--json', payload], { timeout: wait ? 86_400_000 : 60_000 })
+    const timeout = wait ? waitTimeoutMs : 60_000
+    const { stdout, exitCode, timedOut, spawnError } = await spawnCapture(mcp2cli, [server, tool, '--json', payload], { timeout })
+    if (spawnError) throw new Error(`wecom: mcp2cli 未找到或无法启动（${spawnError}）——请确认 mcp2cli 已安装`)
+    if (timedOut) throw new Error(`wecom: HITL 等待超时（${timeout}ms 内无回复）`)
     if (exitCode !== 0) throw new Error(`wecom mcp2cli ${tool} exit ${exitCode}: ${stdout.slice(0, 200)}`)
     return stdout
   }

@@ -43,7 +43,7 @@ export function interpolateEnv(template, env = process.env) {
       throw new Error(`非法插值 token：${m}（仅支持 \${IDENT}）`)
     }
     if (!(ident in env)) {
-      throw new Error(`环境变量 ${ident} 未设置（插值 ${m} 失败）`)
+      throw new Error(`环境变量 ${ident} 未设置（插值 ${m} 失败，来自模板：${template.slice(0, 80)}）`)
     }
     return env[ident]
   })

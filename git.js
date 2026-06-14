@@ -4,7 +4,7 @@
 // 通过 flowx 暴露这组受控 helper，让编排逻辑提交改动而无需裸调 shell。
 
 import { execFileSync } from 'child_process'
-import { existsSync } from 'fs'
+import { existsSync, realpathSync } from 'fs'
 import { isDryRun } from './dry-run.js'
 
 // 内部 helper，供 self-mod-guard.js 共用；不经 index.js 对外暴露。
@@ -84,11 +84,21 @@ export function gitWorktreeAdd(repo = process.cwd(), dir, { ref } = {}) {
   if (!dir) throw new Error('gitWorktreeAdd 需要 dir')
   if (isDryRun()) return { dir, created: false, dryRun: true }
   if (existsSync(dir)) {
-    // 检查是否已注册为有效 worktree，防止孤儿目录被当成合法续跑复用
+    // 检查是否已注册为有效 worktree，防止孤儿目录被当成合法续跑复用。
+    // macOS 下 /var/folders/... 是 /private/var/folders/... 的符号链接，
+    // 用 realpathSync 规范化后再比较，避免误判合法 worktree 为孤儿。
+    let realDir
+    try { realDir = realpathSync(dir) } catch { realDir = dir }
     const listing = gitOk(['worktree', 'list', '--porcelain'], repo)
       ? git(['worktree', 'list', '--porcelain'], repo)
       : ''
-    if (!listing.includes(dir)) {
+    // porcelain 输出每个 worktree 的绝对路径，含 "worktree <path>" 行
+    const registered = listing.split('\n').some(line => {
+      const p = line.startsWith('worktree ') ? line.slice(9).trim() : null
+      if (!p) return false
+      try { return realpathSync(p) === realDir } catch { return p === realDir }
+    })
+    if (!registered) {
       throw new Error(
         `gitWorktreeAdd: ${dir} 已存在但未在 git worktree 注册表中，` +
         `可能是上次失败留下的孤儿目录。请手动删除后重试，或先运行 git worktree prune。`
