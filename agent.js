@@ -502,7 +502,7 @@ export async function runAgentChain(prompt, chain, {
       throw e
     }
   }
-  throw lastErr
+  // 此处不可达：loop 内最后 provider 失败已通过 throw e 退出；lastErr 保留供调试
 }
 
 // ── 并发工具 ─────────────────────────────────────────────────────
@@ -576,6 +576,9 @@ const terminalBackend = {
     const { createInterface } = await import('readline')
     const rl = createInterface({ input: process.stdin, output: process.stdout })
     return new Promise(resolve => {
+      // stdin 关闭（CI/管道场景）时 rl 触发 close 事件但 question 回调不触发，
+      // 监听 close 保证不挂死，返回空串让 flow 能感知到"无输入"并降级处理。
+      rl.on('close', () => resolve(''))
       rl.question(`\n${prompt}\n> `, answer => {
         rl.close()
         resolve(answer.trim())

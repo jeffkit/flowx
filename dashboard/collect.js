@@ -241,8 +241,11 @@ export function collectRuns(repo, {
   const opts = { now, staleMs, logTailLines, logTailBytes }
   const byId = new Map()   // runId → run（去重时保留信息更全的）
 
+  // run id 只允许不含路径分隔符且不以 . 开头的名称，防止 .. 穿越到父目录
+  const VALID_RUN_ID = /^[^./\\][^/\\]*$/
   const scanRunsRoot = (runsRoot) => {
     for (const id of safeReaddir(runsRoot)) {
+      if (!VALID_RUN_ID.test(id)) continue
       const dir = join(runsRoot, id)
       let isDir = false
       try { isDir = statSync(dir).isDirectory() } catch { /* skip */ }

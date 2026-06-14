@@ -71,9 +71,9 @@ export async function loop(iterate, opts = {}) {
   // 已完成轮数从 Checkpoint 推断，支持续跑：扫已落盘的 turn-N 结果（completed 才算真完成）。
   let turn = Object.keys(cp.state.completed ?? {}).filter((k) => /^turn-\d+$/.test(k)).length
   // lastResult 从最后一个已完成 turn 推断，避免额外缓存 key 的 flush 时序缺口。
-  // 续跑时从最后一个完成 turn 的旁路存储里读完整 lastResult（cp._loadResult 会透明处理 sidecar）
+  // 续跑时从最后一个完成 turn 的旁路存储里读完整 lastResult（getStepResult 透明处理 sidecar）
   let lastResult = turn > 0
-    ? cp._loadResult(`turn-${turn}`, cp.state.completed[`turn-${turn}`])?.result
+    ? cp.getStepResult(`turn-${turn}`)?.result
     : undefined
 
   emit({ phase: 'start', goal, fromTurn: turn, maxTurns })
@@ -104,7 +104,7 @@ export async function loop(iterate, opts = {}) {
       })
     } catch (e) {
       cp.state.loopStatus = 'failed'
-      cp._flush()
+      cp.flush()
       emit({ phase: 'failed', turn: turnNo, error: e.message })
       throw e
     }
@@ -115,7 +115,7 @@ export async function loop(iterate, opts = {}) {
     const done = await isDone({ turn: turnNo, result: iterResult, gateResults, state: cp.state })
     lastVerdict = done ? 'done' : 'continue'
     cp.state.loopVerdict = lastVerdict
-    cp._flush()
+    cp.flush()
 
     // 把本轮结论沉淀进跨-run 记忆（可选）。
     if (memoryScope) {

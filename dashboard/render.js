@@ -145,6 +145,9 @@ let search = '';
 let selected = null;
 
 function statusLabel(r){ return r.stale?'stale':r.status; }
+// CSS class 名白名单：只允许已知状态，其他值替换为 'unknown'，防止 state.json 注入 class 属性。
+const SAFE_STATUS = new Set(['running','paused','completed','stale','unknown']);
+function safeSl(r){ const s=statusLabel(r); return SAFE_STATUS.has(s)?s:'unknown'; }
 
 function renderHeader(){
   $('repo').textContent = MODEL.repo;
@@ -184,7 +187,7 @@ function renderList(){
   let html='';
   const renderRun = (r,isChild)=>{
     shown.add(r.runId);
-    const sl=statusLabel(r);
+    const sl=safeSl(r);
     html += '<div class="run'+(isChild?' child':'')+(selected===r.runId?' sel':'')+'" data-id="'+esc(r.runId)+'">'
       + '<div class="rid">'+esc(r.runId)+'</div>'
       + '<div class="meta"><span class="badge b-'+sl+'">'+sl+'</span>'
@@ -213,7 +216,7 @@ function select(id){ selected=id; renderList(); renderDetail(byId[id]); location
 
 function renderDetail(r){
   if(!r){ $('detail').innerHTML='<div class="empty">未找到该 run</div>'; return; }
-  const sl=statusLabel(r);
+  const sl=safeSl(r);
   let h = '<h2>'+esc(r.runId)+' <span class="badge b-'+sl+'">'+sl+'</span></h2>';
   h += '<div class="sub">'+esc(r.dir)+'</div>';
   if(r.stale) h+='<div class="sigchip err" style="margin-bottom:12px">⚠ 僵尸 run：status=running 但最近活动 '+fmtTime(r.lastActivity)+' 已超阈值，进程可能已崩溃/被 kill</div>';
@@ -248,7 +251,7 @@ function renderDetail(r){
   const kids=(r.children||[]).map(id=>byId[id]).filter(Boolean);
   if(kids.length){
     h+='<div class="section-title">子 run（'+kids.length+'）</div><div class="grid">';
-    for(const k of kids){ const ks=statusLabel(k);
+    for(const k of kids){ const ks=safeSl(k);
       h+='<div class="cell" data-id="'+esc(k.runId)+'"><div class="cn">'+esc(k.feature||k.runId)+'</div>'
        +'<div class="cs"><span class="badge b-'+ks+'">'+ks+'</span></div></div>';
     }

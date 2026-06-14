@@ -39,3 +39,13 @@ test('不存在时返回 null', () => {
   assert.equal(readAndConsumeFailureContext(dir, 'nope'), null)
   rmSync(dir, { recursive: true, force: true })
 })
+
+test('tailLog 含三反引号时不破坏 Markdown fence', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'flowcast-fc4-'))
+  writeFailureContext(dir, 'fence', { reason: 'x', tailLog: 'line1\n```\nline2' })
+  const content = readAndConsumeFailureContext(dir, 'fence')
+  // 三反引号应被替换为三单引号，避免提前关闭 fence
+  assert.ok(!content.includes('```\nline2'), '原始 ``` 应被替换，不应出现在 fence 内')
+  assert.match(content, /'''\nline2/, "应替换为 '''")
+  rmSync(dir, { recursive: true, force: true })
+})

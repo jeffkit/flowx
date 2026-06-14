@@ -393,3 +393,27 @@ test('parallel: strict=true 全部成功时正常返回结果', async () => {
   const r = await parallel([() => Promise.resolve('a'), () => Promise.resolve('b')], { strict: true })
   assert.deepEqual(r, ['a', 'b'])
 })
+
+test('runAgentChain: 全部 provider 限额失败时抛最后一个 provider 的错误', async () => {
+  const tried = []
+  const runner = async (_p, spec) => {
+    tried.push(spec.cli)
+    const e = new Error(`rate limit from ${spec.cli}`)
+    e.apiStatus = 429
+    throw e
+  }
+  await assert.rejects(
+    () => runAgentChain('x', [{ cli: 'claude' }, { cli: 'agy' }], { runner }),
+    (err) => {
+      assert.match(err.message, /rate limit from agy/, '应抛最后一个 provider 的错误')
+      assert.deepEqual(tried, ['claude', 'agy'], '两个 provider 都应被尝试')
+      return true
+    },
+  )
+})
+
+test('runAgentChain: 空 chain 等价于单次调用（[{}] 默认）', async () => {
+  const runner = async (_p, spec) => `ok-${JSON.stringify(spec)}`
+  const r = await runAgentChain('x', [], { runner })
+  assert.equal(r, 'ok-{}')
+})
