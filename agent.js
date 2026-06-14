@@ -250,7 +250,14 @@ export function spawnCapture(cmd, args, { cwd = process.cwd(), timeout, env, onD
     }
     let out = ''
     let timedOut = false
-    const append = d => { const s = d.toString(); out += s; onData?.(s) }
+    // 缓冲区上限 16 MB：超出时截断并追加标记，防止 verbose 子进程 OOM Node 宿主。
+    const MAX_BUF = 16 * 1024 * 1024
+    const append = d => {
+      const s = d.toString()
+      onData?.(s)
+      if (out.length < MAX_BUF) out += s
+      else if (!out.endsWith('\n[output truncated]')) out += '\n[output truncated]'
+    }
     proc.stdout.on('data', append)
     proc.stderr.on('data', append)
     const timer = timeout ? setTimeout(() => { timedOut = true; proc.kill('SIGKILL') }, timeout) : null

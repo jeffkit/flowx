@@ -140,3 +140,36 @@ test('loop：缺 iterate/isDone 抛 TypeError', async () => {
   await assert.rejects(loop(null, { isDone: () => true }), /iterate must be a function/)
   await assert.rejects(loop(async () => {}, {}), /isDone must be a function/)
 })
+
+test('loop 续跑：iterate 返回超 500 字符的长结果时 sidecar 路径正确恢复 lastResult', async () => {
+  const dir = tempDir()
+  try {
+    // turn-1 返回超限的长字符串 → 走 sidecar 存储
+    const longResult = 'x'.repeat(600)
+    let turn1LastResult
+    // 第一次运行：完成 turn-1，turn-2 失败（模拟崩溃）
+    await assert.rejects(
+      () => loop(
+        async ({ turn, lastResult }) => {
+          if (turn === 1) return longResult
+          turn1LastResult = lastResult  // 记录 turn-2 收到的 lastResult
+          throw new Error('crash at turn 2')
+        },
+        { goal: 'test', isDone: () => false, runId: 'r-sidecar', stateDir: dir, maxTurns: 3 },
+      ),
+      /crash at turn 2/,
+    )
+    assert.equal(turn1LastResult, longResult, 'turn-2 应从 sidecar 正确恢复 turn-1 的长结果')
+
+    // 第二次运行：续跑，验证 lastResult 从 sidecar 恢复
+    let resumeLastResult
+    await loop(
+      async ({ turn, lastResult }) => {
+        if (turn === 2) resumeLastResult = lastResult  // 续跑 turn-2 的 lastResult
+        return 'short'
+      },
+      { goal: 'test', isDone: ({ turn }) => turn >= 2, runId: 'r-sidecar', stateDir: dir, maxTurns: 3 },
+    )
+    assert.equal(resumeLastResult, longResult, '续跑时应从 sidecar 正确恢复 turn-1 的长结果')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})

@@ -84,3 +84,23 @@ test('scope 含特殊字符被安全化为文件名（不越目录）', () => {
     assert.equal(existsSync(baseDir), true)
   } finally { rmSync(baseDir, { recursive: true, force: true }) }
 })
+
+test('recordLearning: 容量守卫 — 超过 maxEntries 时淘汰旧条目', () => {
+  const baseDir = tempDir()
+  try {
+    // maxEntries=3：写入 6 条。
+    // 第 4 次写入后：行数 4 > 3 → 截断保留最新 ceil(3/2)=2 条（entry-2, entry-3）。
+    // 第 5 次：[entry-2, entry-3, entry-4]，行数 3 = maxEntries（不超限）。
+    // 第 6 次写入后：行数 4 > 3 → 截断保留最新 2 条（entry-4, entry-5）。
+    for (let i = 0; i < 6; i++) {
+      recordLearning('cap', { topic: `entry-${i}` }, { baseDir, maxEntries: 3 })
+    }
+    const hits = recall('cap', { topK: 10, baseDir })
+    // 最新的条目（entry-5）必须保留
+    assert.ok(hits.some(h => h.topic === 'entry-5'), '最新条目 entry-5 应保留')
+    // 最旧的条目（entry-0）必须被淘汰
+    assert.ok(!hits.some(h => h.topic === 'entry-0'), '最旧条目 entry-0 应被淘汰')
+    // 淘汰后条目总数应在合理范围内（不超过 maxEntries + 1 次写入）
+    assert.ok(hits.length <= 3, `条目数应 ≤ 3，实际 ${hits.length}`)
+  } finally { rmSync(baseDir, { recursive: true, force: true }) }
+})

@@ -96,9 +96,14 @@ export function readRun(dir, runId, {
   logTailLines = DEFAULT_LOG_TAIL_LINES, logTailBytes = DEFAULT_LOG_TAIL_BYTES,
 } = {}) {
   const statePath = join(dir, 'state.json')
-  if (!existsSync(statePath)) return null
+  if (!existsSync(statePath) && !existsSync(statePath + '.bak')) return null
+  // 先尝试 state.json，损坏时回退 .bak（镜像 Checkpoint._loadState 的恢复逻辑）
   let state
-  try { state = JSON.parse(readFileSync(statePath, 'utf8')) } catch { return null }
+  for (const src of [statePath, statePath + '.bak']) {
+    if (!existsSync(src)) continue
+    try { state = JSON.parse(readFileSync(src, 'utf8')); break } catch { /* try .bak */ }
+  }
+  if (!state) return null
 
   const logPath = join(dir, 'run.log.jsonl')
   const logEntries = readJsonl(logPath)

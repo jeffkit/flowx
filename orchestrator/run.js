@@ -1,6 +1,6 @@
 // orchestrator/run.js — 执行生成的 flow（护栏③：子进程隔离 + 续跑锁定）
 
-import { existsSync, writeFileSync, readFileSync, mkdirSync, openSync, closeSync } from 'fs'
+import { existsSync, writeFileSync, readFileSync, mkdirSync, openSync, closeSync, unlinkSync } from 'fs'
 import { join, dirname } from 'path'
 import { createRequire } from 'module'
 import { fileURLToPath } from 'url'
@@ -74,11 +74,28 @@ export async function orchestrate(request, {
   mkdirSync(runDir, { recursive: true })
   const claimed = tryCreateExclusive(file)
   if (!claimed) {
-    reused = true // 文件已存在（完整续跑）或已被其他进程创建（并发）
+    // 文件已存在：检查是否有实际内容（0-byte = 上次生成失败留下的僵尸锁）
+    const existing = readFileSync(file, 'utf8').trim()
+    if (existing) {
+      reused = true
+    } else {
+      // 僵尸锁：删除并重新生成
+      unlinkSync(file)
+      return orchestrate(request, { repo, runId, agent, agents, providers, generate, dryRun, timeout, onData, extraArgs })
+    }
   } else {
-    const g = await generateFlow(request, { repo, runDir, agent, agents, providers, generate })
+    let g
+    try {
+      g = await generateFlow(request, { repo, runDir, agent, agents, providers, generate })
+    } catch (e) {
+      unlinkSync(file)  // 释放锁，下次可重试
+      throw e
+    }
     attempts = g.attempts
-    if (!g.validation.ok) return { ok: false, stage: 'generate', error: g.validation.error, file, attempts }
+    if (!g.validation.ok) {
+      unlinkSync(file)  // 释放锁
+      return { ok: false, stage: 'generate', error: g.validation.error, file, attempts }
+    }
     writeFileSync(join(runDir, 'request.txt'), request, 'utf8')
   }
 
@@ -118,13 +135,21 @@ export async function orchestrateMulti(goal, {
   let tasks
   const tasksOwned = tryCreateExclusive(tasksPath)
   if (!tasksOwned) {
-    // 其他进程已拥有或上次已生成 → 读取
-    tasks = JSON.parse(readFileSync(tasksPath, 'utf8'))
+    // 文件已存在：检查是否有实际内容（0-byte = 上次分拆失败留下的僵尸锁）
+    const raw = readFileSync(tasksPath, 'utf8').trim()
+    if (raw) {
+      tasks = JSON.parse(raw)
+    } else {
+      // 僵尸锁：删除并递归重试
+      unlinkSync(tasksPath)
+      return orchestrateMulti(goal, { repo, runId, agent, agents, providers, generate, decomposeGen, concurrency, isolate, dryRun, timeout, onData })
+    }
   } else {
     let d
     try {
       d = await decompose(goal, { repo, agent, agents, providers, generate: decomposeGen })
     } catch (e) {
+      unlinkSync(tasksPath)  // 释放锁，下次可重试
       return { ok: false, stage: 'decompose', runId, error: e.message }
     }
     tasks = d.tasks

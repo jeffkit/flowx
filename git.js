@@ -9,7 +9,11 @@ import { isDryRun } from './dry-run.js'
 
 // 内部 helper，供 self-mod-guard.js 共用；不经 index.js 对外暴露。
 export function git(args, cwd) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  try {
+    return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  } catch (e) {
+    throw new Error(`git ${args[0]} failed in ${cwd}: ${(e.stderr ?? e.message ?? '').trim()}`)
+  }
 }
 
 export function gitOk(args, cwd) {
@@ -79,7 +83,19 @@ export function gitCommitAll(repo = process.cwd(), message = 'flowcast: automate
 export function gitWorktreeAdd(repo = process.cwd(), dir, { ref } = {}) {
   if (!dir) throw new Error('gitWorktreeAdd 需要 dir')
   if (isDryRun()) return { dir, created: false, dryRun: true }
-  if (existsSync(dir)) return { dir, created: false, reason: 'exists' }
+  if (existsSync(dir)) {
+    // 检查是否已注册为有效 worktree，防止孤儿目录被当成合法续跑复用
+    const listing = gitOk(['worktree', 'list', '--porcelain'], repo)
+      ? git(['worktree', 'list', '--porcelain'], repo)
+      : ''
+    if (!listing.includes(dir)) {
+      throw new Error(
+        `gitWorktreeAdd: ${dir} 已存在但未在 git worktree 注册表中，` +
+        `可能是上次失败留下的孤儿目录。请手动删除后重试，或先运行 git worktree prune。`
+      )
+    }
+    return { dir, created: false, reason: 'exists' }
+  }
   const args = ['worktree', 'add', '--detach', dir]
   if (ref) args.push(ref)
   git(args, repo)

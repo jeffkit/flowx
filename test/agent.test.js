@@ -6,7 +6,7 @@ import { join } from 'path'
 
 import {
   recursive, spawnCapture, claudeProviderEnv, isProviderRetryable, runAgentChain,
-  setHitlBackend, getHitlBackend, waitForInput, notify, parallel, setAgentEventSink,
+  setHitlBackend, getHitlBackend, waitForInput, notify, parallel, pipeline, setAgentEventSink,
 } from '../agent.js'
 
 // 假的 recursive 二进制：按 FAKE_MODE 控制输出/退出码，并按 --transcript-out 写 transcript。
@@ -416,4 +416,33 @@ test('runAgentChain: 空 chain 等价于单次调用（[{}] 默认）', async ()
   const runner = async (_p, spec) => `ok-${JSON.stringify(spec)}`
   const r = await runAgentChain('x', [], { runner })
   assert.equal(r, 'ok-{}')
+})
+
+// ── pipeline ─────────────────────────────────────────────────────
+
+test('pipeline: 两阶段正常流转', async () => {
+  const r = await pipeline([1, 2, 3],
+    async (x) => x * 2,
+    async (x) => x + 10,
+  )
+  assert.deepEqual(r, [12, 14, 16])
+})
+
+test('pipeline: stage 失败时附加 pipelineStage 序号', async () => {
+  await assert.rejects(
+    () => pipeline([1, 2],
+      async (x) => x * 2,
+      async (_x) => { throw new Error('stage1 boom') },
+    ),
+    (err) => {
+      assert.match(err.message, /stage1 boom/)
+      assert.equal(err.pipelineStage, 1, 'pipelineStage 应为 1（第二个 stage）')
+      return true
+    },
+  )
+})
+
+test('pipeline: 空 items 返回空数组', async () => {
+  const r = await pipeline([], async (x) => x + 1)
+  assert.deepEqual(r, [])
 })
